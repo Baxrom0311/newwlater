@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum ConversionStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum DictionaryScript {
+  CYRILLIC
+  OLD_LATIN
+  NEW_LATIN
+  MIXED
+}
+
+enum ConversionDirection {
+  OLD_LATIN_TO_NEW
+  CYRILLIC_TO_NEW
+  ANY
+}
+
+model User {
+  id           String         @id // Clerk user ID
+  email        String         @unique
+  name         String?
+  imageUrl     String?
+  plan         Plan           @default(FREE)
+  createdAt    DateTime       @default(now())
+  conversions  Conversion[]
+  subscription Subscription?
+  usage        MonthlyUsage[]
+}
+
+model Conversion {
+  id           String           @id @default(cuid())
+  userId       String
+  originalName String
+  fileSize     Int
+  fileType     String // docx | pdf | txt | image
+  inputMode    String // cyrillic | old-latin
+  status       ConversionStatus @default(PENDING)
+  resultUrl    String?
+  error        String?
+  createdAt    DateTime         @default(now())
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  stripeCustomerId     String   @unique
+  stripeSubscriptionId String   @unique
+  plan                 Plan
+  status               String // active | canceled | past_due | trialing
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MonthlyUsage {
+  id     String @id @default(cuid())
+  userId String
+  month  String // "2026-07"
+  count  Int    @default(0)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month])
+  @@index([userId, month])
+}
+
+model UzbekDictionaryWord {
+  id         String           @id @default(cuid())
+  word       String
+  normalized String
+  script     DictionaryScript
+  source     String
+  license    String?
+  createdAt  DateTime         @default(now())
+
+  @@unique([normalized, script, source])
+  @@index([normalized])
+  @@index([script])
+}
+
+model ConversionException {
+  id         String              @id @default(cuid())
+  from       String
+  to         String
+  normalized String
+  direction  ConversionDirection @default(ANY)
+  reason     String?
+  source     String?
+  active     Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@unique([normalized, direction])
+  @@index([active, direction])
+}
+
+model ProtectedTerm {
+  id         String   @id @default(cuid())
+  term       String
+  normalized String   @unique
+  reason     String?
+  source     String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([active])
+}

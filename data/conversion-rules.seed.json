@@ -1,0 +1,26 @@
+{
+  "oldLatinWordRules": [
+    { "from": "mo'jiza", "to": "mojiza" },
+    { "from": "mo'jaz", "to": "mojaz" },
+    { "from": "mo'tadil", "to": "motadil" },
+    { "from": "mo'tabar", "to": "motabar" }
+  ],
+  "protectedTerms": [
+    "ChatGPT",
+    "OpenAI",
+    "JavaScript",
+    "TypeScript",
+    "Next.js",
+    "React",
+    "shop",
+    "shopping",
+    "check",
+    "chat",
+    "change",
+    "channel",
+    "share",
+    "show",
+    "short",
+    "shipping"
+  ]
+}

@@ -1,0 +1,11 @@
+# One term per line.
+# Use this format for private brand names, foreign words, profanity/slurs, and terms
+# that must never be transliterated.
+ChatGPT
+OpenAI
+JavaScript
+TypeScript
+Next.js
+React
+shopping
+check
