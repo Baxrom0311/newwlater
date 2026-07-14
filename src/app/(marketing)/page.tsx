@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowRight, Check, FileText, Zap, ShieldCheck, Globe2, Clock3, Lock } from 'lucide-react'
 import LiveDemo from '@/components/LiveDemo'
 import AppLogo from '@/components/AppLogo'
+import CursorSpotlight from '@/components/CursorSpotlight'
 import { SITE_NAME, SITE_URL, jsonLd } from '@/lib/seo'
 
 const FEATURES = [
@@ -49,6 +50,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-surface bg-white dark:bg-zinc-950">
+      <CursorSpotlight />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(softwareSchema) }}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { ArrowUpRight, FileText, Loader2, Sparkles } from 'lucide-react'
 import DashboardTabs from '@/components/DashboardTabs'
 import FileConverter from '@/components/FileConverter'
@@ -29,6 +29,7 @@ function planLabel(plan: PlanKey) {
 export default function DashboardHome() {
   const router = useRouter()
   const { isLoaded, isSignedIn } = useUser()
+  const { getToken } = useAuth()
   const [data, setData] = useState<DashboardMe | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,7 +43,16 @@ export default function DashboardHome() {
     let cancelled = false
     setError(null)
 
-    fetch('/api/me', { cache: 'no-store' })
+    getToken()
+      .then(token => {
+        if (!token) throw new Error('Unauthorized')
+        return fetch('/api/me', {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      })
       .then(async res => {
         if (res.status === 401) {
           router.replace('/sign-in?redirect_url=/dashboard')
@@ -64,7 +74,7 @@ export default function DashboardHome() {
     return () => {
       cancelled = true
     }
-  }, [isLoaded, isSignedIn, router])
+  }, [getToken, isLoaded, isSignedIn, router])
 
   const limit = useMemo(() => data?.limit ?? Infinity, [data?.limit])
 

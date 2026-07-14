@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { Download, File, FileImage, FileText, Loader2, Lock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +57,7 @@ function formatDate(value: string) {
 export default function HistoryClient() {
   const router = useRouter()
   const { isLoaded, isSignedIn } = useUser()
+  const { getToken } = useAuth()
   const [data, setData] = useState<HistoryResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,7 +71,16 @@ export default function HistoryClient() {
     let cancelled = false
     setError(null)
 
-    fetch('/api/history', { cache: 'no-store' })
+    getToken()
+      .then(token => {
+        if (!token) throw new Error('Unauthorized')
+        return fetch('/api/history', {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      })
       .then(async res => {
         if (res.status === 401) {
           router.replace('/sign-in?redirect_url=/history')
@@ -92,7 +102,7 @@ export default function HistoryClient() {
     return () => {
       cancelled = true
     }
-  }, [isLoaded, isSignedIn, router])
+  }, [getToken, isLoaded, isSignedIn, router])
 
   if (!isLoaded || (isSignedIn && !data && !error)) {
     return (

@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { verifyToken } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
-  const { userId } = await auth()
+async function userIdFromBearer(req: Request) {
+  const token = req.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]
+  if (!token) return null
+  const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY })
+  return payload.sub
+}
+
+export async function GET(req: Request) {
+  const userId = await userIdFromBearer(req).catch(() => null)
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

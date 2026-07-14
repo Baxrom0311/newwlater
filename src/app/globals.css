@@ -122,6 +122,39 @@
   background-size: 72px 72px;
   mask-image: linear-gradient(to bottom, black, transparent 85%);
 }
+.cursor-spotlight {
+  --spotlight-x: 50vw;
+  --spotlight-y: 38vh;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 420ms ease;
+  background:
+    radial-gradient(420px circle at var(--spotlight-x) var(--spotlight-y),
+      rgba(37, 99, 235, 0.12),
+      rgba(20, 184, 166, 0.075) 34%,
+      rgba(255, 255, 255, 0.035) 52%,
+      transparent 72%);
+  mix-blend-mode: multiply;
+}
+.cursor-spotlight[data-active="true"] {
+  opacity: 1;
+}
+.dark .cursor-spotlight {
+  background:
+    radial-gradient(460px circle at var(--spotlight-x) var(--spotlight-y),
+      rgba(147, 197, 253, 0.18),
+      rgba(45, 212, 191, 0.105) 35%,
+      rgba(255, 255, 255, 0.055) 54%,
+      transparent 74%);
+  mix-blend-mode: screen;
+}
+.landing-surface > :not(.cursor-spotlight) {
+  position: relative;
+  z-index: 1;
+}
 @keyframes landing-gradient {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -129,6 +162,14 @@
 @media (prefers-reduced-motion: reduce) {
   .landing-surface {
     animation: none;
+  }
+  .cursor-spotlight {
+    display: none;
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  .cursor-spotlight {
+    display: none;
   }
 }
 
