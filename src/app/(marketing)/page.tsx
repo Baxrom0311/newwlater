@@ -141,8 +141,8 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="feature-grid feature-grid-balanced">
-            {FEATURES.map(({ icon: Icon, accent, title, desc }) => (
-              <div key={title} className={`feature-tile ${accent}`}>
+            {FEATURES.map(({ icon: Icon, accent, title, desc }, index) => (
+              <div key={title} className={`feature-tile ${accent}`} style={{ '--feature-delay': `${index * 0.42}s` } as React.CSSProperties}>
                 <div className="feature-icon">
                   <Icon className="w-6 h-6" />
                 </div>

@@ -368,6 +368,7 @@
 }
 .feature-tile {
   --feature-rgb: 37, 99, 235;
+  --feature-delay: 0s;
   position: relative;
   min-height: 260px;
   padding: 34px;
@@ -382,6 +383,8 @@
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.28s ease,
               border-color 0.28s ease;
+  animation: feature-breathe 7.4s ease-in-out infinite;
+  animation-delay: var(--feature-delay);
 }
 .feature-tile::before {
   content: '';
@@ -396,23 +399,61 @@
 .feature-tile::after {
   content: '';
   position: absolute;
-  right: -46px;
-  bottom: -46px;
-  width: 140px;
-  height: 140px;
+  right: -64px;
+  bottom: -64px;
+  width: 170px;
+  height: 170px;
   border-radius: 50%;
   border: 1px solid rgba(var(--feature-rgb), 0.14);
   background: rgba(var(--feature-rgb), 0.045);
   pointer-events: none;
+  transform: scale(0.92);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s ease,
+              background 0.35s ease;
+}
+.feature-tile .feature-icon::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(var(--feature-rgb), 0.24), transparent 68%);
+  opacity: 0.55;
+  animation: feature-icon-aura 4.8s ease-in-out infinite;
+  animation-delay: var(--feature-delay);
 }
 .feature-tile > * {
   position: relative;
   z-index: 1;
 }
 .feature-tile:hover {
-  transform: translateY(-5px);
+  transform: translateY(-8px) scale(1.012);
   border-color: rgba(var(--feature-rgb), 0.28);
-  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.13);
+  box-shadow: 0 34px 95px rgba(15, 23, 42, 0.15);
+  animation-play-state: paused;
+}
+.feature-tile:hover::before {
+  background: linear-gradient(90deg,
+    rgba(var(--feature-rgb), 1),
+    rgba(255, 255, 255, 0.68),
+    rgba(var(--feature-rgb), 0.22));
+  animation: feature-topline 1.25s ease both;
+}
+.feature-tile:hover::after {
+  opacity: 0.9;
+  transform: translate(-12px, -10px) scale(1.18);
+  background: rgba(var(--feature-rgb), 0.08);
+}
+.feature-tile:hover .feature-icon {
+  transform: translateY(-4px) rotate(-2deg);
+  color: white;
+  background: linear-gradient(135deg, rgba(var(--feature-rgb), 0.98), rgba(var(--feature-rgb), 0.72));
+  border-color: rgba(var(--feature-rgb), 0.38);
+  box-shadow: 0 18px 35px rgba(var(--feature-rgb), 0.24);
+}
+.feature-tile:hover .feature-icon svg {
+  transform: scale(1.08);
 }
 .feature-tile:first-child {
   min-height: 540px;
@@ -445,6 +486,8 @@
   font-size: 20px;
 }
 .feature-icon {
+  position: relative;
+  isolation: isolate;
   width: 64px;
   height: 64px;
   border-radius: 18px;
@@ -455,6 +498,16 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 32px;
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.34s ease,
+              color 0.34s ease,
+              box-shadow 0.34s ease,
+              border-color 0.34s ease;
+  animation: feature-icon-float 5.8s ease-in-out infinite;
+  animation-delay: var(--feature-delay);
+}
+.feature-icon svg {
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .feature-accent-blue { --feature-rgb: 37, 99, 235; }
 .feature-accent-violet { --feature-rgb: 124, 58, 237; }
@@ -549,6 +602,40 @@
   background:
     linear-gradient(145deg, rgba(24, 24, 27, 0.86), rgba(9, 9, 11, 0.62)),
     radial-gradient(circle at top right, rgba(var(--feature-rgb), 0.16), transparent 44%);
+}
+@keyframes feature-breathe {
+  0%, 100% {
+    box-shadow: 0 20px 55px rgba(15, 23, 42, 0.07);
+    border-color: rgba(226, 232, 240, 0.9);
+  }
+  50% {
+    box-shadow: 0 25px 74px rgba(var(--feature-rgb), 0.105);
+    border-color: rgba(var(--feature-rgb), 0.2);
+  }
+}
+@keyframes feature-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes feature-icon-aura {
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50% { opacity: 0.68; transform: scale(1.08); }
+}
+@keyframes feature-topline {
+  0% { background-position: 0% center; }
+  100% { background-position: 180% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feature-tile,
+  .feature-icon,
+  .feature-tile .feature-icon::after {
+    animation: none;
+  }
+  .feature-tile:hover,
+  .feature-tile:hover .feature-icon,
+  .feature-tile:hover .feature-icon svg {
+    transform: none;
+  }
 }
 
 .pricing-grid {
