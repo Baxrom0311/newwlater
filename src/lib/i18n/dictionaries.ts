@@ -1,6 +1,10 @@
 export type Language = 'uz' | 'ru' | 'en'
 
-export type Translations = typeof dictionaries['uz']
+type DeepString<T> = {
+  readonly [K in keyof T]: T[K] extends string ? string : DeepString<T[K]>
+}
+
+export type Translations = DeepString<typeof dictionaries['uz']>
 
 export const dictionaries = {
   uz: {
