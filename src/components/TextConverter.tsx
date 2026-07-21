@@ -100,7 +100,7 @@ export default function TextConverter() {
     if (!output) return
     try {
       const docxBuffer = await createDocxFromText(output)
-      const blob = new Blob([docxBuffer], {
+      const blob = new Blob([new Uint8Array(docxBuffer)], {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       })
       const url = URL.createObjectURL(blob)
