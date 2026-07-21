@@ -17,7 +17,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let user = await prisma.user.findUnique({ where: { id: userId } }).catch(() => null)
+  let user: { id: string; plan: string; [key: string]: unknown } | null =
+    await prisma.user.findUnique({ where: { id: userId } }).catch(() => null)
   if (!user) {
     try {
       const clerk = await clerkClient()
@@ -29,10 +30,7 @@ export async function GET(req: Request) {
           name: `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() || null,
           imageUrl: clerkUser.imageUrl,
         },
-      }).catch(() => ({
-        id: userId,
-        plan: 'FREE',
-      }))
+      }).catch(() => ({ id: userId, plan: 'FREE' as string }))
     } catch {
       user = { id: userId, plan: 'FREE' }
     }
