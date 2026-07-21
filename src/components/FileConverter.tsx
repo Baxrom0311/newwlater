@@ -72,7 +72,7 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
         file: f,
         status: 'idle' as FileStatus,
         progress: 0,
-        targetOut: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'].includes(extOf(f.name)) ? 'txt' : undefined
+        targetOut: (['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'].includes(extOf(f.name)) ? 'txt' : undefined) as 'txt' | 'docx' | undefined,
       })),
     ])
   }, [])
