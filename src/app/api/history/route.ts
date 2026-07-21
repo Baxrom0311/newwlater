@@ -15,14 +15,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }).catch(() => null)
   const isPro = user?.plan === 'PRO' || user?.plan === 'BUSINESS'
   const conversions = isPro
     ? await prisma.conversion.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 100,
-      })
+      }).catch(() => [])
     : []
 
   return NextResponse.json({

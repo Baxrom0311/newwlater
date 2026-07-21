@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { I18nProvider } from '@/lib/i18n/I18nContext'
 import { SEO_KEYWORDS, SITE_NAME, SITE_URL } from '@/lib/seo'
 import './globals.css'
 
@@ -62,8 +63,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="uz" suppressHydrationWarning>
         <body className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 antialiased transition-colors duration-300" suppressHydrationWarning>
           <ThemeProvider>
-            {children}
-            <Toaster position="bottom-right" richColors />
+            <I18nProvider>
+              {children}
+              <Toaster position="bottom-right" richColors />
+            </I18nProvider>
           </ThemeProvider>
         </body>
       </html>

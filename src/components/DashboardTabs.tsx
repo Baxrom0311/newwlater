@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { FileText, Type } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/I18nContext'
 
 interface Props {
   textConverter: React.ReactNode
@@ -9,38 +10,39 @@ interface Props {
 }
 
 export default function DashboardTabs({ textConverter, fileConverter }: Props) {
+  const { t } = useI18n()
   const [tab, setTab] = useState<'text' | 'file'>('text')
 
   return (
-    <div className="rounded-[24px] border border-zinc-200/80 bg-white/92 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.09)] backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-950/72 dark:shadow-[0_24px_70px_rgba(0,0,0,0.36)] sm:rounded-[32px] sm:p-4">
+    <div className="rounded-2xl border border-zinc-200/80 bg-white/92 p-2 shadow-sm backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-950/72 sm:rounded-3xl sm:p-3">
       {/* Tab buttons */}
-      <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-[20px] bg-zinc-200/70 p-1.5 dark:bg-zinc-900/80 sm:mb-4 sm:w-fit sm:min-w-[360px] sm:gap-2 sm:rounded-[24px]">
+      <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900/80 sm:mb-3 sm:w-fit sm:min-w-[320px] sm:gap-1.5 sm:rounded-2xl">
         <button
           onClick={() => setTab('text')}
-          className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition-all duration-200 sm:rounded-[18px] sm:px-5 sm:py-3 ${
+          className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition-all duration-200 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm ${
             tab === 'text'
               ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-white'
               : 'text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
           }`}
         >
-          <Type className="h-4 w-4" />
-          Matn
+          <Type className="h-3.5 w-3.5" />
+          {t.converter.text_tab}
         </button>
         <button
           onClick={() => setTab('file')}
-          className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition-all duration-200 sm:rounded-[18px] sm:px-5 sm:py-3 ${
+          className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition-all duration-200 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm ${
             tab === 'file'
               ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-white'
               : 'text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
           }`}
         >
-          <FileText className="h-4 w-4" />
-          Fayl
+          <FileText className="h-3.5 w-3.5" />
+          {t.converter.file_tab}
         </button>
       </div>
 
       {/* Panel */}
-      <div className="overflow-hidden rounded-[20px] border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 sm:rounded-[26px]">
+      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 sm:rounded-2xl">
         {tab === 'text' ? textConverter : fileConverter}
       </div>
     </div>

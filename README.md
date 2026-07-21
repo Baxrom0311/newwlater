@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AlifboAI — O'zbek Tili Yangi Alifbo va Hujjat Konvertori SaaS
 
-## Getting Started
+AlifboAI — o'zbek tilidagi matnlar, Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), PDF va skanerlangan rasmlarni rasmiy 2026-yilgi yangi o'zbek alifbosiga, kirill hamda lotin alifbolari o'rtasida format va dizaynni 100% saqlagan holda konvertatsiya qiluvchi zamonaviy SaaS platformasidir.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Asosiy Imkoniyatlar
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 📄 **Word Hujjatlari (`.docx`)**: Shrift, jadval, rang, sarlavha hamda formullarni buzmasdan matnlarni o'girish.
+- 📊 **PowerPoint Taqdimotlari (`.pptx`)**: Slaydlar, izohlar va tayyor dizaynlardagi matnlarni to'liq konvertatsiya qilish.
+- 📈 **Excel Elektron Jadvallari (`.xlsx`)**: Kataklar va jadvallar strukturasini, formulalarni saqlab qolgan holda matnlarni o'g'irish.
+- 🔍 **PDF va Skanerlangan Hujjatlar (OCR)**: Rasmli va skanerlangan PDF hujjatlardan Tesseract.js (OCR) yordamida matnni aniqlash va o'girish.
+- 🖼 **Tasvirlar va Rasmlar**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff` fayllardan matn ajratib olish va ularni `.txt` yoki `.docx` fayl qilib yuklab olish.
+- ⚡ **Aqlli va Moslashuvchan Matn Muharriri**: Avto-aniqlash (Auto-detect), Eski Lotin → Yangi, Kirill → Yangi rejimlari, Swap (o'rin almashtirish) va bir bosishda DOCX/TXT ko'rinishida saqlash.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠 Texnologiyalar To'plami
 
-## Learn More
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript
+- **Stilizatsiya**: Tailwind CSS v4, Lucide React, Next Themes (Dark/Light mode)
+- **Autentifikatsiya**: Clerk (`@clerk/nextjs`)
+- **Ma'lumotlar Bazasi va ORM**: PostgreSQL (Neon Postgres) + Prisma ORM
+- **Fayl Xotirasi**: Vercel Blob Storage (`@vercel/blob`)
+- **To'lov Tizimi**: Stripe Subscriptions
+- **Kesh va Rate Limiting**: Upstash Redis
+- **Fayl Protsessorlari**: `jszip`, `mammoth`, `pdf-lib`, `pdf-parse`, `tesseract.js`
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 💻 Mahalliy Muhitda Ishga Tushirish
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Repozitoriyani klonlash va kutubxonalarni o'rnatish**:
+   ```bash
+   npm install
+   ```
 
-## Deploy on Vercel
+2. **Atrof-muhit o'zgaruvchilarini sozlash**:
+   `.env.example` faylidan nusxa olib `.env` faylini yarating:
+   ```bash
+   cp .env.example .env
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Prisma va ma'lumotlar bazasi migratsiyasi**:
+   ```bash
+   npx prisma db push
+   npm run rules:seed
+   npm run dictionary:import
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Loyiha serverini yurgazish**:
+   ```bash
+   npm run dev
+   ```
+   Brauzerda `http://localhost:3000` manzilini oching.
+
+---
+
+## 📝 Skriptlar va Buyruqlar
+
+- `npm run dev` — Ishlab chiqish dev-serverini yaratadi.
+- `npm run build` — Prodaction uchun loyihani optimallashgan holda yig'adi.
+- `npm run rules:seed` — Ma'lumotlar bazasiga o'girish va istisno qoidalarini kiritadi.
+- `npm run dictionary:import` — O'zbek tili lug'at bazasini bazaga import qiladi.
+- `npm run converter:check` — Imlo va o'girma algoritmlarini avtomatik test qiladi.

@@ -13,7 +13,7 @@ function outputFilename(name: string, ext: string): string {
 }
 
 async function getSampleText(buffer: Buffer, ext: string): Promise<string> {
-  if (['txt', 'md', 'csv'].includes(ext))
+  if (['txt', 'md', 'csv', 'json', 'html', 'xml', 'rtf'].includes(ext))
     return buffer.toString('utf-8').slice(0, 3000)
   if (ext === 'docx') {
     const JSZip = (await import('jszip')).default
@@ -21,10 +21,22 @@ async function getSampleText(buffer: Buffer, ext: string): Promise<string> {
     const xml = (await zip.file('word/document.xml')?.async('text')) ?? ''
     return xml.replace(/<[^>]+>/g, ' ').slice(0, 3000)
   }
+  if (ext === 'pptx') {
+    const JSZip = (await import('jszip')).default
+    const zip = await JSZip.loadAsync(buffer)
+    const slide1 = (await zip.file('ppt/slides/slide1.xml')?.async('text')) ?? ''
+    return slide1.replace(/<[^>]+>/g, ' ').slice(0, 3000)
+  }
+  if (ext === 'xlsx') {
+    const JSZip = (await import('jszip')).default
+    const zip = await JSZip.loadAsync(buffer)
+    const sharedStrings = (await zip.file('xl/sharedStrings.xml')?.async('text')) ?? ''
+    return sharedStrings.replace(/<[^>]+>/g, ' ').slice(0, 3000)
+  }
   if (ext === 'pdf') {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>
-    const data = await pdfParse(buffer)
+    const data = await pdfParse(buffer).catch(() => ({ text: '' }))
     return data.text.slice(0, 3000)
   }
   return ''
@@ -100,6 +112,18 @@ export async function POST(req: NextRequest) {
       body = new Uint8Array(result)
       contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       outExt = 'docx'
+    } else if (ext === 'pptx') {
+      const { processPptx } = await import('@/lib/pptx-processor')
+      const result = await processPptx(buffer, mode, conversionRules)
+      body = new Uint8Array(result)
+      contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      outExt = 'pptx'
+    } else if (ext === 'xlsx') {
+      const { processXlsx } = await import('@/lib/xlsx-processor')
+      const result = await processXlsx(buffer, mode, conversionRules)
+      body = new Uint8Array(result)
+      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      outExt = 'xlsx'
     } else if (ext === 'pdf') {
       const { processPdf } = await import('@/lib/pdf-processor')
       const result = await processPdf(buffer, mode, conversionRules)
@@ -108,10 +132,18 @@ export async function POST(req: NextRequest) {
       outExt = result.ext
     } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'].includes(ext)) {
       const { processImage } = await import('@/lib/image-processor')
-      body = await processImage(buffer, mode, conversionRules)
-      contentType = 'text/plain; charset=utf-8'
-      outExt = 'txt'
-    } else if (['txt', 'md', 'csv'].includes(ext)) {
+      const imgRes = await processImage(buffer, mode, conversionRules)
+      const targetOut = (formData.get('targetOut') as string | null) ?? 'txt'
+      if (targetOut === 'docx') {
+        body = new Uint8Array(imgRes.docx)
+        contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        outExt = 'docx'
+      } else {
+        body = imgRes.text
+        contentType = 'text/plain; charset=utf-8'
+        outExt = 'txt'
+      }
+    } else if (['txt', 'md', 'csv', 'json', 'html', 'xml', 'rtf'].includes(ext)) {
       body = await convertTextWithDictionary(buffer.toString('utf-8'), mode, conversionRules)
       contentType = 'text/plain; charset=utf-8'
       outExt = ext

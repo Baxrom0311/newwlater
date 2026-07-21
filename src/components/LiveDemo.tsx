@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { convertText, detectMode } from '@/lib/converter'
 import { Copy, Check, Sparkles, Languages } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/I18nContext'
 
 const EXAMPLES = [
   { label: 'Lotin',  text: "shirin choy va g'alla non yedi" },
@@ -12,6 +13,7 @@ const EXAMPLES = [
 ]
 
 export default function LiveDemo() {
+  const { t } = useI18n()
   const [input, setInput]       = useState(EXAMPLES[0].text)
   const [output, setOutput]     = useState('')
   const [detected, setDetected] = useState<'old-latin' | 'cyrillic'>('old-latin')
@@ -97,10 +99,10 @@ export default function LiveDemo() {
                 <Languages className={`w-5 h-5 ${isCyrillic ? 'text-orange-600' : 'text-zinc-500 dark:text-zinc-400'}`} />
               </div>
               <div>
-                <p className="text-xs sm:text-sm font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest leading-none">Asl matn</p>
+                <p className="text-xs sm:text-sm font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-widest leading-none">{t.converter.asl_matn}</p>
                 {active && (
                   <p className={`text-sm mt-1.5 font-medium ${isCyrillic ? 'text-orange-500' : 'text-blue-500'}`}>
-                    {isCyrillic ? 'Kirill' : 'Eski lotin'}
+                    {isCyrillic ? t.converter.cyrillic_mode : t.converter.old_latin_mode}
                   </p>
                 )}
               </div>
@@ -111,13 +113,13 @@ export default function LiveDemo() {
               value={input}
               onChange={e => handleInput(e.target.value)}
               rows={4}
-              placeholder={"Kirill yoki eski lotin\nmatnini kiriting..."}
+              placeholder={t.converter.input_placeholder}
               className="flex-1 text-lg sm:text-2xl text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-600 bg-transparent resize-none outline-none leading-relaxed font-medium"
             />
 
             {/* Footer */}
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-              <span className="text-sm sm:text-base text-zinc-500 dark:text-zinc-600 tabular-nums">{input.length} belgi</span>
+              <span className="text-sm sm:text-base text-zinc-500 dark:text-zinc-600 tabular-nums">{input.length} {t.converter.char_count}</span>
             </div>
           </div>
 
@@ -158,8 +160,7 @@ export default function LiveDemo() {
                   <span className={`text-2xl font-bold leading-none transition-colors duration-300 ${active ? 'text-blue-600' : 'text-zinc-400'}`}>Ö</span>
                 </div>
                 <div>
-                  <p className="text-xs sm:text-sm font-bold text-blue-500 dark:text-blue-500 uppercase tracking-widest leading-none">Yangi 2026</p>
-                  {active && <p className="text-sm mt-1.5 font-medium text-blue-500">O'zbek yangi alifbo</p>}
+                  <p className="text-xs sm:text-sm font-bold text-blue-500 dark:text-blue-500 uppercase tracking-widest leading-none">{t.converter.yangi_matn}</p>
                 </div>
               </div>
 
@@ -169,8 +170,8 @@ export default function LiveDemo() {
                   className="flex w-fit items-center gap-2 text-sm sm:text-base px-3 sm:px-4 py-2 rounded-lg border transition-all duration-200 border-blue-200 dark:border-blue-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-600"
                 >
                   {copied
-                    ? <><Check className="w-4 h-4 text-green-500" /> Nusxalandi</>
-                    : <><Copy className="w-4 h-4" /> Nusxa</>
+                    ? <><Check className="w-4 h-4 text-green-500" /> {t.converter.copied}</>
+                    : <><Copy className="w-4 h-4" /> {t.converter.copy}</>
                   }
                 </button>
               )}
@@ -184,24 +185,19 @@ export default function LiveDemo() {
                 </p>
               ) : (
                 <p className="text-lg sm:text-2xl text-zinc-500 dark:text-zinc-600 leading-relaxed">
-                  Natija bu yerda chiqadi...
+                  {t.converter.output_placeholder}
                 </p>
               )}
             </div>
 
             {/* Footer */}
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-blue-100/60 dark:border-zinc-700">
-              <span className="text-sm sm:text-base text-zinc-500 dark:text-zinc-600 tabular-nums">{output.length} belgi</span>
+              <span className="text-sm sm:text-base text-zinc-500 dark:text-zinc-600 tabular-nums">{output.length} {t.converter.char_count}</span>
             </div>
           </div>
 
         </div>
       </div>
-
-      {/* Hint */}
-      <p className="text-center text-sm sm:text-lg text-zinc-500 dark:text-zinc-500 mt-5 sm:mt-7 px-2">
-        O'zingizning matnizni yozing — Kirill va lotin ikkalasini tushunadi
-      </p>
     </div>
   )
 }

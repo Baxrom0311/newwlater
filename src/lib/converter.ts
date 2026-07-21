@@ -21,15 +21,16 @@ export function detectMode(text: string): ConversionMode {
   return cyrillicCount > latinCount ? 'cyrillic' : 'old-latin'
 }
 
-// All apostrophe variants used in Uzbek Latin writing.
-const AP = `[ʻ'‘’\`ʼ]`
-const LATIN_WORD = /[\p{L}ʻ'‘’`ʼ-]+/gu
-const LATIN_CONVERSION_MARKER = /sh|ch|[og][ʻ'‘’`ʼ]/iu
+// All apostrophe variants used in Uzbek Latin writing (including backtick \u0060).
+const AP = "[ʻ'\\u0060ʼ]"
+const LATIN_WORD = /[\p{L}ʻ'\u0060ʼ-]+/gu
+const CYRILLIC_WORD = /[\p{L}\p{M}-]+/gu
+const LATIN_CONVERSION_MARKER = /sh|ch|[og][ʻ'\u0060ʼ]/iu
 
 function normalizeKey(value: string): string {
   return value
     .toLocaleLowerCase('uz-UZ')
-    .replace(/[ʻ‘’`ʼ]/g, "'")
+    .replace(/[ʻ`ʼ]/g, "'")
 }
 
 function matchWordCase(source: string, replacement: string): string {
@@ -97,12 +98,12 @@ export function convertText(text: string, mode: ConversionMode, options: Convers
   const protectedTermSet = new Set(protectedTerms.map(normalizeKey))
 
   return splitProtected(text)
-    .map((part) => {
-      if (part.protected) return part.value
-      if (mode === 'old-latin') return convertOldLatinToNew(part.value, oldLatinRuleMap, protectedTermSet)
-      return convertCyrillicToNew(part.value)
-    })
-    .join('')
+  .map((part) => {
+    if (part.protected) return part.value
+    if (mode === 'old-latin') return convertOldLatinToNew(part.value, oldLatinRuleMap, protectedTermSet)
+    return convertCyrillicToNew(part.value)
+  })
+  .join('')
 }
 
 function convertOldLatinToNew(
@@ -171,30 +172,35 @@ const CYRILLIC_PAIRS: [RegExp, string][] = [
   [/У/g, 'U'],  [/у/g, 'u'],
   [/Ф/g, 'F'],  [/ф/g, 'f'],
   [/Х/g, 'X'],  [/х/g, 'x'],
-  [/Ч/g, 'Ç'],  [/ч/g, 'ç'],  // NEW 2026
-  [/Ш/g, 'Ş'],  [/ш/g, 'ş'],  // NEW 2026
+  [/Ч/g, 'Ç'],  [/ч/g, 'ç'],
+  [/Ш/g, 'Ş'],  [/ш/g, 'ş'],
   [/Щ/g, 'Ş'],  [/щ/g, 'ş'],
   [/Э/g, 'E'],  [/э/g, 'e'],
   [/Ъ/g, "'"],  [/ъ/g, "'"],
   [/Ь/g, ''],   [/ь/g, ''],
-  [/Ў/g, 'Ö'],  [/ў/g, 'ö'],  // NEW 2026
+  [/Ў/g, 'Ö'],  [/ў/g, 'ö'],
   [/Қ/g, 'Q'],  [/қ/g, 'q'],
-  [/Ғ/g, 'Ğ'],  [/ғ/g, 'ğ'],  // NEW 2026
+  [/Ғ/g, 'Ğ'],  [/ғ/g, 'ğ'],
   [/Ҳ/g, 'H'],  [/ҳ/g, 'h'],
   [/Ц/g, 'Ts'], [/ц/g, 'ts'],
   [/Ң/g, 'Ng'], [/ң/g, 'ng'],
 ]
 
-function convertCyrillicToNew(text: string): string {
-  // Handle context-aware Е/е first (using character-level loop)
-  let result = text.replace(/[Ее]/g, (match, offset, str) => {
+function convertCyrillicWord(word: string): string {
+  const isAllCaps = word.toLocaleUpperCase('uz-UZ') === word && /[А-ЯЁЎҚҒҲ]/u.test(word)
+
+  let res = word.replace(/[Ее]/g, (match, offset, str) => {
     const prev = offset > 0 ? str[offset - 1] : null
     return cyrillicEConvert(match, prev)
   })
 
-  // Apply remaining substitutions
   for (const [pattern, replacement] of CYRILLIC_PAIRS) {
-    result = result.replace(pattern, replacement)
+    res = res.replace(pattern, replacement)
   }
-  return result
+
+  return isAllCaps ? res.toLocaleUpperCase('uz-UZ') : res
+}
+
+function convertCyrillicToNew(text: string): string {
+  return text.replace(CYRILLIC_WORD, (word) => convertCyrillicWord(word))
 }

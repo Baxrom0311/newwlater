@@ -4,7 +4,8 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Download, Loader2, X, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Download, Loader2, X, UploadCloud, CheckCircle2, AlertCircle, FileSpreadsheet, FileText, Presentation } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/I18nContext'
 
 type DetectedMode = 'old-latin' | 'cyrillic' | null
 type FileStatus = 'idle' | 'converting' | 'done' | 'error'
@@ -17,6 +18,7 @@ interface ConvertFile {
   resultUrl?: string
   resultName?: string
   detectedMode?: DetectedMode
+  targetOut?: 'txt' | 'docx'
   error?: string
 }
 
@@ -25,9 +27,12 @@ const FREE_ACCEPT = {
   'text/plain': ['.txt'],
   'text/markdown': ['.md'],
   'text/csv': ['.csv'],
+  'application/json': ['.json'],
 }
 const PRO_ACCEPT = {
   ...FREE_ACCEPT,
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
   'application/pdf': ['.pdf'],
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
@@ -41,16 +46,20 @@ function extOf(name: string) {
   return name.split('.').pop()?.toLowerCase() ?? ''
 }
 
-function outLabel(name: string) {
+function outLabel(name: string, targetOut?: string) {
   const e = extOf(name)
-  if (e === 'docx') return '.docx'
-  if (['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'].includes(e)) return '.txt'
+  if (['docx', 'pptx', 'xlsx'].includes(e)) return `.${e}`
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'].includes(e)) {
+    return targetOut === 'docx' ? '.docx' : '.txt'
+  }
+  if (e === 'pdf') return '.docx / .pdf'
   return `.${e}`
 }
 
 interface Props { plan: string; maxFileSizeMB: number }
 
 export default function FileConverter({ plan, maxFileSizeMB }: Props) {
+  const { t } = useI18n()
   const [items, setItems] = useState<ConvertFile[]>([])
   const router = useRouter()
   const isPro = plan === 'PRO' || plan === 'BUSINESS'
@@ -60,7 +69,10 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
       ...prev,
       ...accepted.map(f => ({
         id: crypto.randomUUID(),
-        file: f, status: 'idle' as FileStatus, progress: 0,
+        file: f,
+        status: 'idle' as FileStatus,
+        progress: 0,
+        targetOut: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'].includes(extOf(f.name)) ? 'txt' : undefined
       })),
     ])
   }, [])
@@ -80,6 +92,10 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
     })
   }
 
+  const setTargetOut = (id: string, targetOut: 'txt' | 'docx') => {
+    setItems(prev => prev.map(x => x.id === id ? { ...x, targetOut } : x))
+  }
+
   const convert = async (id: string) => {
     const entry = items.find(x => x.id === id)
     if (!entry || entry.status === 'converting') return
@@ -89,41 +105,44 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
     const fd = new FormData()
     fd.append('file', entry.file)
     fd.append('mode', 'auto')
+    if (entry.targetOut) {
+      fd.append('targetOut', entry.targetOut)
+    }
 
     const tick = setInterval(() => {
       setItems(prev => prev.map(x =>
-        x.id === id && x.status === 'converting' && x.progress < 80
-          ? { ...x, progress: x.progress + 8 }
+        x.id === id && x.status === 'converting' && x.progress < 85
+          ? { ...x, progress: x.progress + 7 }
           : x
       ))
-    }, 350)
+    }, 300)
 
     try {
       const res = await fetch('/api/convert', { method: 'POST', body: fd })
       clearInterval(tick)
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Xato' }))
+        const data = await res.json().catch(() => ({ error: 'Error' }))
         if (res.status === 403) {
           toast.error(data.error, {
-            action: { label: "Pro ga o'tish", onClick: () => router.push('/pricing') },
+            action: { label: "Pro", onClick: () => router.push('/pricing') },
           })
         } else {
-          toast.error(data.error ?? 'Xato yuz berdi')
+          toast.error(data.error ?? 'Error')
         }
         throw new Error(data.error)
       }
 
       const blob = await res.blob()
       const disp = res.headers.get('Content-Disposition') ?? ''
-      const name = disp.match(/filename="?([^";]+)"?/)?.[1] ?? 'natija.txt'
+      const name = disp.match(/filename="?([^";]+)"?/)?.[1] ?? 'natija.docx'
       const resultUrl = URL.createObjectURL(blob)
       const detectedMode = res.headers.get('X-Detected-Mode') as DetectedMode
 
       setItems(prev => prev.map(x =>
         x.id === id ? { ...x, status: 'done', progress: 100, resultUrl, resultName: name, detectedMode } : x
       ))
-      toast.success(`${entry.file.name} tayyor!`)
+      toast.success(`${entry.file.name}`)
       router.refresh()
     } catch {
       clearInterval(tick)
@@ -143,10 +162,26 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
   return (
     <div className="space-y-3 p-3 sm:space-y-4 sm:p-5">
 
+      {/* Format badges */}
+      <div className="flex flex-wrap gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+        <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+          <FileText className="w-3.5 h-3.5" /> Word (.docx)
+        </span>
+        <span className="flex items-center gap-1 rounded-lg bg-orange-50 px-2.5 py-1 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300">
+          <Presentation className="w-3.5 h-3.5" /> PowerPoint (.pptx)
+        </span>
+        <span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+          <FileSpreadsheet className="w-3.5 h-3.5" /> Excel (.xlsx)
+        </span>
+        <span className="flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+          PDF & OCR
+        </span>
+      </div>
+
       {/* Drop zone */}
       <div
         {...getRootProps()}
-        className={`relative cursor-pointer rounded-[22px] border-2 border-dashed p-7 text-center transition-all duration-300 sm:rounded-[28px] sm:p-14 ${
+        className={`relative cursor-pointer rounded-[22px] border-2 border-dashed p-7 text-center transition-all duration-300 sm:rounded-[28px] sm:p-12 ${
           isDragActive
             ? 'border-blue-400 bg-blue-50/60 drop-pulse dark:bg-blue-950/30'
             : 'border-zinc-200 bg-zinc-50/44 hover:border-blue-200 hover:bg-blue-50/30 dark:border-zinc-800 dark:bg-zinc-900/48 dark:hover:border-blue-900/70 dark:hover:bg-blue-950/18'
@@ -159,94 +194,120 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
           <UploadCloud className="h-8 w-8" />
         </div>
         <p className="mb-1 text-lg font-black text-zinc-800 dark:text-zinc-100 sm:text-xl">
-          {isDragActive ? "Qo'yib yuboring" : 'Fayllarni tashlang'}
+          {isDragActive ? '...' : t.converter.drop_title}
         </p>
         <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">
-          {isPro ? 'DOCX · PDF · TXT · Rasm' : 'DOCX · TXT'} · max {maxFileSizeMB} MB
+          {t.converter.drop_subtitle} · Max: {maxFileSizeMB} MB
         </p>
       </div>
 
       {/* File list */}
       {items.length > 0 && (
         <div className="space-y-2">
-          {items.map(item => (
-            <div
-              key={item.id}
-              className="group flex flex-col gap-3 rounded-2xl border border-zinc-100 bg-white px-4 py-4 transition-colors hover:border-blue-100 dark:border-zinc-800 dark:bg-zinc-900/72 dark:hover:border-blue-900/60 sm:flex-row sm:items-center"
-            >
-              {/* Filename + meta */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="max-w-[260px] truncate text-sm font-black text-zinc-800 dark:text-zinc-100">
-                    {item.file.name}
-                  </span>
-                  <span className="text-xs font-black text-zinc-500 dark:text-zinc-500">→ {outLabel(item.file.name)}</span>
-                  {item.detectedMode && (
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                      item.detectedMode === 'cyrillic'
-                        ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/36 dark:text-orange-300'
-                        : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/36 dark:text-indigo-300'
-                    }`}>
-                      {item.detectedMode === 'cyrillic' ? 'Kirill' : 'Lotin'}
+          {items.map(item => {
+            const ext = extOf(item.file.name)
+            const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'].includes(ext)
+
+            return (
+              <div
+                key={item.id}
+                className="group flex flex-col gap-3 rounded-2xl border border-zinc-100 bg-white px-4 py-4 transition-colors hover:border-blue-100 dark:border-zinc-800 dark:bg-zinc-900/72 dark:hover:border-blue-900/60 sm:flex-row sm:items-center"
+              >
+                {/* Filename + meta */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="max-w-[260px] truncate text-sm font-black text-zinc-800 dark:text-zinc-100">
+                      {item.file.name}
                     </span>
+                    <span className="text-xs font-black text-zinc-500 dark:text-zinc-500">
+                      → {outLabel(item.file.name, item.targetOut)}
+                    </span>
+                    {item.detectedMode && (
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        item.detectedMode === 'cyrillic'
+                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/36 dark:text-orange-300'
+                          : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/36 dark:text-indigo-300'
+                      }`}>
+                        {item.detectedMode === 'cyrillic' ? t.converter.cyrillic_mode : t.converter.old_latin_mode}
+                      </span>
+                    )}
+                    {isImage && item.status === 'idle' && (
+                      <div className="flex items-center gap-1 text-[11px] font-medium">
+                        <span className="text-zinc-400">Result:</span>
+                        <button
+                          type="button"
+                          onClick={() => setTargetOut(item.id, 'txt')}
+                          className={`px-1.5 py-0.5 rounded ${item.targetOut === 'txt' ? 'bg-blue-100 text-blue-700 font-bold dark:bg-blue-900 dark:text-blue-200' : 'text-zinc-500 hover:text-zinc-800'}`}
+                        >
+                          TXT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTargetOut(item.id, 'docx')}
+                          className={`px-1.5 py-0.5 rounded ${item.targetOut === 'docx' ? 'bg-blue-100 text-blue-700 font-bold dark:bg-blue-900 dark:text-blue-200' : 'text-zinc-500 hover:text-zinc-800'}`}
+                        >
+                          DOCX
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  {item.status === 'converting' && (
+                    <div className="mt-1.5 h-0.5 bg-zinc-100 rounded-full overflow-hidden dark:bg-zinc-800">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                        style={{ width: `${item.progress}%` }}
+                      />
+                    </div>
                   )}
                 </div>
 
-                {/* Progress bar */}
-                {item.status === 'converting' && (
-                  <div className="mt-1.5 h-0.5 bg-zinc-100 rounded-full overflow-hidden dark:bg-zinc-800">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex shrink-0 items-center gap-2">
-                {item.status === 'idle' && (
-                  <button
-                    onClick={() => convert(item.id)}
-                    className="btn-border h-9 rounded-xl border border-zinc-200 bg-white px-4 text-xs font-black text-zinc-600 transition-colors hover:border-blue-200 hover:text-blue-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-blue-800 dark:hover:text-blue-300"
-                  >
-                    Konvert
-                  </button>
-                )}
-                {item.status === 'converting' && (
-                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-                )}
-                {item.status === 'done' && item.resultUrl && (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    <a href={item.resultUrl} download={item.resultName}>
-                      <button className="btn-border shine flex h-9 items-center gap-1 rounded-xl bg-green-600 px-4 text-xs font-black text-white transition-colors hover:bg-green-700">
-                        <Download className="w-3 h-3" />
-                        Yuklab olish
-                      </button>
-                    </a>
-                  </>
-                )}
-                {item.status === 'error' && (
-                  <>
-                    <AlertCircle className="w-4 h-4 text-red-400" />
+                {/* Actions */}
+                <div className="flex shrink-0 items-center gap-2">
+                  {item.status === 'idle' && (
                     <button
                       onClick={() => convert(item.id)}
-                      className="h-9 rounded-xl border border-red-200 px-4 text-xs font-black text-red-500 transition-colors hover:bg-red-50 dark:border-red-900/70 dark:hover:bg-red-950/30"
+                      className="btn-border h-9 rounded-xl border border-zinc-200 bg-white px-4 text-xs font-black text-zinc-600 transition-colors hover:border-blue-200 hover:text-blue-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-blue-800 dark:hover:text-blue-300"
                     >
-                      Qayta
+                      {t.converter.convert_btn}
                     </button>
-                  </>
-                )}
-                <button
-                  onClick={() => remove(item.id)}
-                  className="rounded-lg p-1 text-zinc-300 opacity-100 transition-all hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 sm:opacity-0 sm:group-hover:opacity-100"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                  )}
+                  {item.status === 'converting' && (
+                    <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                  )}
+                  {item.status === 'done' && item.resultUrl && (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <a href={item.resultUrl} download={item.resultName}>
+                        <button className="btn-border shine flex h-9 items-center gap-1 rounded-xl bg-green-600 px-4 text-xs font-black text-white transition-colors hover:bg-green-700">
+                          <Download className="w-3 h-3" />
+                          {t.converter.download_btn}
+                        </button>
+                      </a>
+                    </>
+                  )}
+                  {item.status === 'error' && (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-red-400" />
+                      <button
+                        onClick={() => convert(item.id)}
+                        className="h-9 rounded-xl border border-red-200 px-4 text-xs font-black text-red-500 transition-colors hover:bg-red-50 dark:border-red-900/70 dark:hover:bg-red-950/30"
+                      >
+                        {t.converter.retry_btn}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => remove(item.id)}
+                    className="rounded-lg p-1 text-zinc-300 opacity-100 transition-all hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 sm:opacity-0 sm:group-hover:opacity-100"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           {pendingCount > 0 && (
             <button
@@ -255,8 +316,8 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
               className="btn-border shine flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
               {converting
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Konvertatsiya qilinmoqda...</>
-                : `Hammasini konvertatsiya qilish (${pendingCount})`
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> {t.converter.converting}</>
+                : `${t.converter.convert_all} (${pendingCount})`
               }
             </button>
           )}

@@ -1,7 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { createWorker } from 'tesseract.js'
 import { convertTextWithDictionary } from './async-converter'
-import { renderPdfPages } from './pdf-renderer'
 import type { ConversionMode, ConversionOptions } from './converter'
 
 type OcrWord = {
@@ -29,66 +28,82 @@ export async function processScannedPdf(
   mode: ConversionMode,
   options: ConversionOptions = {}
 ): Promise<Buffer> {
-  const pages = await renderPdfPages(buffer, 2)
-  if (pages.length === 0) throw new Error('PDF sahifalari topilmadi.')
-
-  const pdf = await PDFDocument.create()
-  const font = await pdf.embedFont(StandardFonts.Helvetica)
-  const worker = await createWorker(['uzb', 'uzb_latn', 'eng'], 1, { logger: () => {} })
-  let totalWords = 0
+  let pages: Array<{ pageNumber: number; png: Buffer; width: number; height: number }> = []
 
   try {
-    for (const rendered of pages) {
-      const image = await pdf.embedPng(rendered.png)
-      const page = pdf.addPage([rendered.width, rendered.height])
-      page.drawImage(image, {
-        x: 0,
-        y: 0,
-        width: rendered.width,
-        height: rendered.height,
-      })
+    const { renderPdfPages } = await import('./pdf-renderer')
+    pages = await renderPdfPages(buffer, 2)
+  } catch (err) {
+    console.warn('[processScannedPdf] Canvas rendering fallback:', err)
+  }
 
-      const { data } = await worker.recognize(rendered.png)
-      const words = getWords(data)
-        .map((word) => ({ ...word, text: cleanWord(word.text) }))
-        .filter((word) => word.text && (word.confidence ?? 100) >= 35)
-      totalWords += words.length
+  const worker = await createWorker(['uzb', 'uzb_latn', 'eng'], 1, { logger: () => {} })
 
-      for (const word of words) {
-        const converted = await convertTextWithDictionary(word.text, mode, options)
-        if (converted === word.text) continue
+  try {
+    if (pages.length > 0) {
+      const pdf = await PDFDocument.create()
+      const font = await pdf.embedFont(StandardFonts.Helvetica)
+      let totalWords = 0
 
-        const x = word.bbox.x0
-        const y = rendered.height - word.bbox.y1
-        const width = Math.max(1, word.bbox.x1 - word.bbox.x0)
-        const height = Math.max(1, word.bbox.y1 - word.bbox.y0)
-        const fontSize = Math.max(5, height * 0.72)
-
-        page.drawRectangle({
-          x: Math.max(0, x - 1),
-          y: Math.max(0, y - 1),
-          width: width + 2,
-          height: height + 2,
-          color: rgb(1, 1, 1),
-          opacity: 0.92,
+      for (const rendered of pages) {
+        const image = await pdf.embedPng(rendered.png)
+        const page = pdf.addPage([rendered.width, rendered.height])
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: rendered.width,
+          height: rendered.height,
         })
-        page.drawText(converted, {
-          x,
-          y: y + Math.max(1, height * 0.12),
-          size: fontSize,
-          font,
-          color: rgb(0.05, 0.1, 0.2),
-          maxWidth: width * 1.35,
-        })
+
+        const { data } = await worker.recognize(rendered.png)
+        const words = getWords(data)
+          .map((word) => ({ ...word, text: cleanWord(word.text) }))
+          .filter((word) => word.text && (word.confidence ?? 100) >= 35)
+        totalWords += words.length
+
+        for (const word of words) {
+          const converted = await convertTextWithDictionary(word.text, mode, options)
+          if (converted === word.text) continue
+
+          const x = word.bbox.x0
+          const y = rendered.height - word.bbox.y1
+          const width = Math.max(1, word.bbox.x1 - word.bbox.x0)
+          const height = Math.max(1, word.bbox.y1 - word.bbox.y0)
+          const fontSize = Math.max(5, height * 0.72)
+
+          page.drawRectangle({
+            x: Math.max(0, x - 1),
+            y: Math.max(0, y - 1),
+            width: width + 2,
+            height: height + 2,
+            color: rgb(1, 1, 1),
+            opacity: 0.92,
+          })
+          page.drawText(converted, {
+            x,
+            y: y + Math.max(1, height * 0.12),
+            size: fontSize,
+            font,
+            color: rgb(0.05, 0.1, 0.2),
+            maxWidth: width * 1.35,
+          })
+        }
+      }
+
+      if (totalWords > 0) {
+        return Buffer.from(await pdf.save())
       }
     }
+
+    const { data } = await worker.recognize(buffer)
+    const text = data.text.trim()
+    if (!text) {
+      throw new Error('Skan PDF ichidan matn topilmadi.')
+    }
+    const convertedText = await convertTextWithDictionary(text, mode, options)
+    const { createDocxFromText } = await import('./docx-writer')
+    return await createDocxFromText(convertedText)
   } finally {
     await worker.terminate()
   }
-
-  if (totalWords === 0) {
-    throw new Error('Skan PDF ichidan matn topilmadi.')
-  }
-
-  return Buffer.from(await pdf.save())
 }

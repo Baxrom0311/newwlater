@@ -9,15 +9,15 @@ function xmlEscape(value: string): string {
 }
 
 function textRun(text: string): string {
-  return `<w:r><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`
+  return `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`
 }
 
 function paragraph(text: string): string {
-  const runs = text
-    .split('\n')
+  const lines = text.split('\n')
+  const runs = lines
     .map((line, index) => `${index === 0 ? '' : '<w:r><w:br/></w:r>'}${textRun(line)}`)
     .join('')
-  return `<w:p>${runs}</w:p>`
+  return `<w:p><w:pPr><w:spacing w:line="276" w:lineRule="auto" w:after="120"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/></w:rPr></w:pPr>${runs}</w:p>`
 }
 
 export async function createDocxFromText(text: string): Promise<Buffer> {

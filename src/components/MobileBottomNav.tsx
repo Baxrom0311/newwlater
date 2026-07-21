@@ -4,22 +4,24 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { Home, LayoutDashboard, ReceiptText, History } from 'lucide-react'
-
-const ITEMS = [
-  { href: '/', label: 'Bosh', icon: Home, authHref: '/' },
-  { href: '/pricing', label: 'Narxlar', icon: ReceiptText, authHref: '/pricing' },
-  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, authHref: '/sign-in' },
-  { href: '/history', label: 'Tarix', icon: History, authHref: '/sign-in' },
-]
+import { useI18n } from '@/lib/i18n/I18nContext'
 
 export default function MobileBottomNav() {
   const pathname = usePathname()
   const { isSignedIn } = useUser()
+  const { t } = useI18n()
+
+  const items = [
+    { href: '/', label: t.nav.home, icon: Home, authHref: '/' },
+    { href: '/pricing', label: t.nav.pricing, icon: ReceiptText, authHref: '/pricing' },
+    { href: '/dashboard', label: t.nav.panel, icon: LayoutDashboard, authHref: '/sign-in' },
+    { href: '/history', label: t.nav.history, icon: History, authHref: '/sign-in' },
+  ]
 
   return (
     <nav className="fixed inset-x-3 bottom-3 z-50 rounded-[24px] border border-zinc-200/90 bg-white/94 p-1.5 shadow-[0_18px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/92 md:hidden">
       <div className="grid grid-cols-4 gap-1">
-        {ITEMS.map(({ href, authHref, label, icon: Icon }) => {
+        {items.map(({ href, authHref, label, icon: Icon }) => {
           const target = href === '/dashboard' || href === '/history'
             ? isSignedIn ? href : authHref
             : href

@@ -17,23 +17,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let user = await prisma.user.findUnique({ where: { id: userId } })
+  let user = await prisma.user.findUnique({ where: { id: userId } }).catch(() => null)
   if (!user) {
-    const clerk = await clerkClient()
-    const clerkUser = await clerk.users.getUser(userId)
-    user = await prisma.user.create({
-      data: {
+    try {
+      const clerk = await clerkClient()
+      const clerkUser = await clerk.users.getUser(userId)
+      user = await prisma.user.create({
+        data: {
+          id: userId,
+          email: clerkUser.emailAddresses[0]?.emailAddress ?? '',
+          name: `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() || null,
+          imageUrl: clerkUser.imageUrl,
+        },
+      }).catch(() => ({
         id: userId,
-        email: clerkUser.emailAddresses[0]?.emailAddress ?? '',
-        name: `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() || null,
-        imageUrl: clerkUser.imageUrl,
-      },
-    })
+        plan: 'FREE',
+      }))
+    } catch {
+      user = { id: userId, plan: 'FREE' }
+    }
   }
 
-  const plan = user.plan as PlanKey
+  const plan = (user?.plan ?? 'FREE') as PlanKey
   const planConfig = getPlan(plan)
-  const used = await getMonthlyUsage(userId)
+  const used = await getMonthlyUsage(userId).catch(() => 0)
   const limit = planConfig.monthlyLimit === Infinity ? null : planConfig.monthlyLimit
 
   return NextResponse.json({
