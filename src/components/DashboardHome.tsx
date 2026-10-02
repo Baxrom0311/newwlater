@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { ArrowUpRight, FileText, Loader2, Sparkles, ChevronRight, ShieldCheck } from 'lucide-react'
+import { ArrowUpRight, FileText, Sparkles, ChevronRight, ShieldCheck } from 'lucide-react'
 import DashboardTabs from '@/components/DashboardTabs'
 import FileConverter from '@/components/FileConverter'
 import TextConverter from '@/components/TextConverter'
 import UsageBar from '@/components/UsageBar'
+import CheckoutButton from '@/components/CheckoutButton'
 import { useI18n } from '@/lib/i18n/I18nContext'
 
 type PlanKey = 'FREE' | 'PRO' | 'BUSINESS'
@@ -37,6 +38,7 @@ export default function DashboardHome() {
     }
 
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(null)
 
     getToken()
@@ -165,18 +167,18 @@ export default function DashboardHome() {
       <div className="mb-3 grid gap-3 sm:mb-4 lg:grid-cols-[1fr_280px]">
         <UsageBar used={data.used} limit={limit} plan={data.plan} />
         {data.plan === 'FREE' ? (
-          <Link
-            href="/pricing"
-            className="group flex items-center justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-600 to-teal-500 px-4 py-3 text-white shadow-md transition-transform hover:-translate-y-0.5"
+          <CheckoutButton
+            plan="PRO"
+            className="group flex w-full items-center justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-600 to-teal-500 px-4 py-3 text-left text-white shadow-md transition-transform hover:-translate-y-0.5"
           >
-            <div>
-              <p className="text-xs font-black">{t.dashboard.upgrade_pro}</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-white/90">{t.dashboard.upgrade_sub}</p>
-            </div>
+            <span>
+              <span className="block text-xs font-black">{t.dashboard.upgrade_pro}</span>
+              <span className="mt-0.5 block text-[11px] font-semibold text-white/90">{t.dashboard.upgrade_sub}</span>
+            </span>
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/18 transition-transform group-hover:translate-x-0.5">
               <ArrowUpRight className="h-4 w-4" />
             </span>
-          </Link>
+          </CheckoutButton>
         ) : (
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3 dark:border-emerald-900/60 dark:bg-emerald-950/28">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">

@@ -7,8 +7,9 @@ const cache = new Map<string, { value: boolean; expiresAt: number }>()
 export function normalizeDictionaryWord(value: string): string {
   return value
     .trim()
+    .normalize('NFC')
     .toLocaleLowerCase('uz-UZ')
-    .replace(/[ʻ‘’`ʼ]/g, "'")
+    .replace(/[ʻ‘’`ʼ´′ʹʽ‛ˈ＇"”«»]/g, "'")
 }
 
 function getCached(key: string): boolean | null {
@@ -57,11 +58,18 @@ export async function filterKnownUzbekWords(words: string[]): Promise<Set<string
   }
 
   if (missing.length > 0) {
-    const rows = await prisma.uzbekDictionaryWord.findMany({
-      where: { normalized: { in: missing } },
-      select: { normalized: true },
-    })
-    const found = new Set(rows.map((row) => row.normalized))
+    // Chunk the IN(...) list so a large document can't build one enormous query
+    // (Postgres bind-parameter limits / planner cost).
+    const CHUNK = 900
+    const found = new Set<string>()
+    for (let i = 0; i < missing.length; i += CHUNK) {
+      const slice = missing.slice(i, i + CHUNK)
+      const rows = await prisma.uzbekDictionaryWord.findMany({
+        where: { normalized: { in: slice } },
+        select: { normalized: true },
+      })
+      for (const row of rows) found.add(row.normalized)
+    }
     for (const word of missing) {
       const value = found.has(word)
       setCached(word, value)

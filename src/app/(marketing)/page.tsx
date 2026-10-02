@@ -2,28 +2,20 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight, Check, FileText, Zap, ShieldCheck, Globe2, Clock3, Lock } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 import LiveDemo from '@/components/LiveDemo'
 import AppLogo from '@/components/AppLogo'
 import CursorSpotlight from '@/components/CursorSpotlight'
+import ModernFeatures from '@/components/ModernFeatures'
 import { useI18n } from '@/lib/i18n/I18nContext'
 
 export default function LandingPage() {
   const { t } = useI18n()
 
-  const features = [
-    { icon: FileText, accent: 'feature-accent-blue', title: t.features.docx_title, desc: t.features.docx_desc },
-    { icon: Zap, accent: 'feature-accent-violet', title: t.features.dirs_title, desc: t.features.dirs_desc },
-    { icon: ShieldCheck, accent: 'feature-accent-emerald', title: t.features.ocr_title, desc: t.features.ocr_desc },
-    { icon: Globe2, accent: 'feature-accent-amber', title: t.features.formats_title, desc: t.features.formats_desc },
-    { icon: Clock3, accent: 'feature-accent-sky', title: t.features.speed_title, desc: t.features.speed_desc },
-    { icon: Lock, accent: 'feature-accent-rose', title: t.features.sec_title, desc: t.features.sec_desc },
-  ]
-
   const pricingPlans = [
     { name: t.pricing.free_plan, price: '$0', period: '', note: t.pricing.note_free, items: ['10 / mo', '5 MB', 'DOCX · TXT'], cta: t.pricing.start_btn, href: '/sign-up', primary: false },
-    { name: t.pricing.pro_plan, price: '$9', period: t.pricing.per_month, note: t.pricing.note_pro, items: ['500 / mo', '50 MB', 'All formats · OCR'], cta: t.pricing.start_pro, href: '/pricing', primary: true },
-    { name: t.pricing.business_plan, price: '$29', period: t.pricing.per_month, note: t.pricing.note_biz, items: ['Unlimited', '500 MB', 'API · History'], cta: t.pricing.more, href: '/pricing', primary: false },
+    { name: t.pricing.pro_plan, price: '$3', period: t.pricing.per_month, note: t.pricing.note_pro, items: ['500 / mo', '50 MB', 'All formats · OCR'], cta: t.pricing.start_pro, href: '/pricing', primary: true },
+    { name: t.pricing.business_plan, price: '$10', period: t.pricing.per_month, note: t.pricing.note_biz, items: ['Unlimited', '500 MB', 'API · History'], cta: t.pricing.more, href: '/pricing', primary: false },
   ]
 
   return (
@@ -99,29 +91,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══ FEATURES ══════════════════════════════════════════ */}
-      <section className="relative px-4 py-14 sm:py-20">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-sm font-bold text-blue-600 uppercase tracking-widest mb-4">{t.features.title_tag}</p>
-            <h2 className="text-3xl sm:text-5xl font-bold text-zinc-900 dark:text-white tracking-tight">{t.features.title}</h2>
-            <p className="text-zinc-600 dark:text-zinc-400 mt-4 sm:mt-5 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
-              {t.features.sub}
-            </p>
-          </div>
-          <div className="feature-grid feature-grid-balanced">
-            {features.map(({ icon: Icon, accent, title, desc }, index) => (
-              <div key={title} className={`feature-tile ${accent}`} style={{ '--feature-delay': `${index * 0.42}s` } as React.CSSProperties}>
-                <div className="feature-icon">
-                  <Icon className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-3 tracking-tight">{title}</h3>
-                <p className="text-base text-zinc-500 dark:text-zinc-400 leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ══ FEATURES (MODERN BENTO GRID) ═════════════════════════ */}
+      <ModernFeatures />
 
       {/* ══ PRICING TEASER ════════════════════════════════════ */}
       <section className="px-4 py-14 sm:py-20">

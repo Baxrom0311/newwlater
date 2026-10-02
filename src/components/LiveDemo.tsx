@@ -1,42 +1,33 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { convertText, detectMode } from '@/lib/converter'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { convertText, detectMode, type ConversionMode } from '@/lib/converter'
 import { Copy, Check, Sparkles, Languages } from 'lucide-react'
 import { useI18n } from '@/lib/i18n/I18nContext'
 
 const EXAMPLES = [
-  { label: 'Lotin',  text: "shirin choy va g'alla non yedi" },
   { label: 'Lotin',  text: "O'zbekiston — go'zal va obod yurt" },
+  { label: 'Lotin',  text: "Shoirning yangi she'ri yuksak sur'atda yoyildi" },
   { label: 'Kirill', text: "Шарқий Ўзбекистон ғаройиб жой" },
-  { label: 'Kirill', text: "Чойхона, шаҳар, кўча ва боғ" },
+  { label: 'Kirill', text: "Адабий анжуманда маҳзун диллар мунаввар бўлди" },
 ]
 
 export default function LiveDemo() {
   const { t } = useI18n()
   const [input, setInput]       = useState(EXAMPLES[0].text)
-  const [output, setOutput]     = useState('')
-  const [detected, setDetected] = useState<'old-latin' | 'cyrillic'>('old-latin')
-  const [exIdx, setExIdx]       = useState(0)
   const [copied, setCopied]     = useState(false)
-  const [active, setActive]     = useState(false)
-  const intervalRef             = useRef<ReturnType<typeof setInterval>>(null)
+  const intervalRef             = useRef<ReturnType<typeof setInterval> | null>(null)
+  const exampleIdx              = useRef(0)
 
-  useEffect(() => {
-    if (!input.trim()) { setOutput(''); setActive(false); return }
-    const mode = detectMode(input)
-    setDetected(mode)
-    setOutput(convertText(input, mode))
-    setActive(true)
-  }, [input])
+  // Derived — compute during render instead of syncing via effects.
+  const active = input.trim().length > 0
+  const detected = useMemo<ConversionMode>(() => detectMode(input), [input])
+  const output = useMemo(() => (active ? convertText(input, detected) : ''), [active, input, detected])
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
-      setExIdx(prev => {
-        const next = (prev + 1) % EXAMPLES.length
-        setInput(EXAMPLES[next].text)
-        return next
-      })
+      exampleIdx.current = (exampleIdx.current + 1) % EXAMPLES.length
+      setInput(EXAMPLES[exampleIdx.current].text)
     }, 3800)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [])

@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Download, Loader2, X, UploadCloud, CheckCircle2, AlertCircle, FileSpreadsheet, FileText, Presentation } from 'lucide-react'
 import { useI18n } from '@/lib/i18n/I18nContext'
 
-type DetectedMode = 'old-latin' | 'cyrillic' | null
+type DetectedMode = 'old-latin' | 'cyrillic' | 'new-latin' | null
 type FileStatus = 'idle' | 'converting' | 'done' | 'error'
 
 interface ConvertFile {
@@ -56,13 +56,48 @@ function outLabel(name: string, targetOut?: string) {
   return `.${e}`
 }
 
+function modeLabel(mode: Exclude<DetectedMode, null>, labels: ReturnType<typeof useI18n>['t']) {
+  if (mode === 'cyrillic') return labels.converter.cyrillic_mode
+  if (mode === 'new-latin') return labels.converter.new_latin_mode ?? 'Yangi → Eski Lotin'
+  return labels.converter.old_latin_mode
+}
+
 interface Props { plan: string; maxFileSizeMB: number }
 
 export default function FileConverter({ plan, maxFileSizeMB }: Props) {
   const { t } = useI18n()
   const [items, setItems] = useState<ConvertFile[]>([])
+  const [modeSetting, setModeSetting] = useState<'auto' | 'old-latin' | 'cyrillic' | 'new-latin'>('auto')
   const router = useRouter()
   const isPro = plan === 'PRO' || plan === 'BUSINESS'
+
+  // Track created object URLs, in-flight requests, and timers so we can clean
+  // them up on unmount / removal (they otherwise leak large result blobs and
+  // keep uploads running for discarded items).
+  const objectUrls = useRef<Set<string>>(new Set())
+  const controllers = useRef<Map<string, AbortController>>(new Map())
+  const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    refreshTimer.current = setTimeout(() => router.refresh(), 400)
+  }, [router])
+
+  useEffect(() => {
+    const urls = objectUrls.current
+    const ctrls = controllers.current
+    const tmrs = timers.current
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u))
+      urls.clear()
+      ctrls.forEach((c) => c.abort())
+      ctrls.clear()
+      tmrs.forEach((id) => clearInterval(id))
+      tmrs.clear()
+      if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    }
+  }, [])
 
   const onDrop = useCallback((accepted: File[]) => {
     setItems(prev => [
@@ -85,9 +120,17 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
   })
 
   const remove = (id: string) => {
+    // Cancel any in-flight upload and free the result blob for this item.
+    controllers.current.get(id)?.abort()
+    controllers.current.delete(id)
+    const timer = timers.current.get(id)
+    if (timer) { clearInterval(timer); timers.current.delete(id) }
     setItems(prev => {
       const it = prev.find(x => x.id === id)
-      if (it?.resultUrl) URL.revokeObjectURL(it.resultUrl)
+      if (it?.resultUrl) {
+        URL.revokeObjectURL(it.resultUrl)
+        objectUrls.current.delete(it.resultUrl)
+      }
       return prev.filter(x => x.id !== id)
     })
   }
@@ -104,10 +147,13 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
 
     const fd = new FormData()
     fd.append('file', entry.file)
-    fd.append('mode', 'auto')
+    fd.append('mode', modeSetting)
     if (entry.targetOut) {
       fd.append('targetOut', entry.targetOut)
     }
+
+    const controller = new AbortController()
+    controllers.current.set(id, controller)
 
     const tick = setInterval(() => {
       setItems(prev => prev.map(x =>
@@ -116,10 +162,16 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
           : x
       ))
     }, 300)
+    timers.current.set(id, tick)
+
+    const stopTick = () => {
+      clearInterval(tick)
+      timers.current.delete(id)
+    }
 
     try {
-      const res = await fetch('/api/convert', { method: 'POST', body: fd })
-      clearInterval(tick)
+      const res = await fetch('/api/convert', { method: 'POST', body: fd, signal: controller.signal })
+      stopTick()
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Error' }))
@@ -135,17 +187,22 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
 
       const blob = await res.blob()
       const disp = res.headers.get('Content-Disposition') ?? ''
-      const name = disp.match(/filename="?([^";]+)"?/)?.[1] ?? 'natija.docx'
+      const utf8 = disp.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+      const name = (utf8 ? decodeURIComponent(utf8) : disp.match(/filename="?([^";]+)"?/)?.[1]) ?? 'natija.docx'
       const resultUrl = URL.createObjectURL(blob)
+      objectUrls.current.add(resultUrl)
       const detectedMode = res.headers.get('X-Detected-Mode') as DetectedMode
 
+      controllers.current.delete(id)
       setItems(prev => prev.map(x =>
         x.id === id ? { ...x, status: 'done', progress: 100, resultUrl, resultName: name, detectedMode } : x
       ))
       toast.success(`${entry.file.name}`)
-      router.refresh()
-    } catch {
-      clearInterval(tick)
+      scheduleRefresh()
+    } catch (err) {
+      stopTick()
+      controllers.current.delete(id)
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setItems(prev => prev.map(x =>
         x.id === id ? { ...x, status: 'error', progress: 0 } : x
       ))
@@ -176,6 +233,57 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
         <span className="flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
           PDF & OCR
         </span>
+      </div>
+
+      {/* Mode Selector */}
+      <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 mr-1">{t.converter.auto_mode}:</span>
+          <button
+            type="button"
+            onClick={() => setModeSetting('auto')}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+              modeSetting === 'auto'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+            }`}
+          >
+            {t.converter.auto_mode}
+          </button>
+          <button
+            type="button"
+            onClick={() => setModeSetting('old-latin')}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+              modeSetting === 'old-latin'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+            }`}
+          >
+            {t.converter.old_latin_mode}
+          </button>
+          <button
+            type="button"
+            onClick={() => setModeSetting('cyrillic')}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+              modeSetting === 'cyrillic'
+                ? 'bg-orange-600 text-white shadow-sm'
+                : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+            }`}
+          >
+            {t.converter.cyrillic_mode}
+          </button>
+          <button
+            type="button"
+            onClick={() => setModeSetting('new-latin')}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+              modeSetting === 'new-latin'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+            }`}
+          >
+            {t.converter.new_latin_mode ?? 'Yangi → Eski Lotin'}
+          </button>
+        </div>
       </div>
 
       {/* Drop zone */}
@@ -222,15 +330,17 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
                     <span className="text-xs font-black text-zinc-500 dark:text-zinc-500">
                       → {outLabel(item.file.name, item.targetOut)}
                     </span>
-                    {item.detectedMode && (
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                        item.detectedMode === 'cyrillic'
-                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/36 dark:text-orange-300'
-                          : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/36 dark:text-indigo-300'
-                      }`}>
-                        {item.detectedMode === 'cyrillic' ? t.converter.cyrillic_mode : t.converter.old_latin_mode}
-                      </span>
-                    )}
+	                    {item.detectedMode && (
+	                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+	                        item.detectedMode === 'cyrillic'
+	                          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/36 dark:text-orange-300'
+	                          : item.detectedMode === 'new-latin'
+	                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/36 dark:text-emerald-300'
+	                          : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/36 dark:text-indigo-300'
+	                      }`}>
+	                        {modeLabel(item.detectedMode, t)}
+	                      </span>
+	                    )}
                     {isImage && item.status === 'idle' && (
                       <div className="flex items-center gap-1 text-[11px] font-medium">
                         <span className="text-zinc-400">Result:</span>
@@ -279,11 +389,13 @@ export default function FileConverter({ plan, maxFileSizeMB }: Props) {
                   {item.status === 'done' && item.resultUrl && (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <a href={item.resultUrl} download={item.resultName}>
-                        <button className="btn-border shine flex h-9 items-center gap-1 rounded-xl bg-green-600 px-4 text-xs font-black text-white transition-colors hover:bg-green-700">
-                          <Download className="w-3 h-3" />
-                          {t.converter.download_btn}
-                        </button>
+                      <a
+                        href={item.resultUrl}
+                        download={item.resultName}
+                        className="btn-border shine flex h-9 items-center gap-1 rounded-xl bg-green-600 px-4 text-xs font-black text-white transition-colors hover:bg-green-700"
+                      >
+                        <Download className="w-3 h-3" />
+                        {t.converter.download_btn}
                       </a>
                     </>
                   )}

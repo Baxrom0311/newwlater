@@ -81,8 +81,8 @@ model MonthlyUsage {
   count  Int    @default(0)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // The unique constraint already provides the (userId, month) index.
   @@unique([userId, month])
-  @@index([userId, month])
 }
 
 model UzbekDictionaryWord {
@@ -94,8 +94,9 @@ model UzbekDictionaryWord {
   license    String?
   createdAt  DateTime         @default(now())
 
+  // The composite unique (normalized, ...) already indexes `normalized` as a
+  // left-prefix, so a separate @@index([normalized]) would be redundant.
   @@unique([normalized, script, source])
-  @@index([normalized])
   @@index([script])
 }
 

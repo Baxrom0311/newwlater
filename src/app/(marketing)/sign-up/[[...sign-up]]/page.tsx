@@ -8,11 +8,11 @@ export default function SignUpPage() {
       title="Yangi alifboga tayyor workspace"
       description="Ro'yxatdan o'ting va DOCX, TXT hamda matnlarni yangi alifboga tezda o‘tkazing. Birinchi 10 ta konversiya bepul."
     >
+      {/* No forceRedirectUrl — so a ?redirect_url=... (e.g. back to /pricing
+          to finish checkout) is honored; /dashboard is only the fallback. */}
       <SignUp
         appearance={clerkAppearance}
-        forceRedirectUrl="/dashboard"
         fallbackRedirectUrl="/dashboard"
-        signInForceRedirectUrl="/dashboard"
         signInFallbackRedirectUrl="/dashboard"
       />
     </AuthShell>

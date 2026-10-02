@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useI18n } from '@/lib/i18n/I18nContext'
+import CheckoutButton from '@/components/CheckoutButton'
 
 interface Props { used: number; limit: number; plan: string }
 
@@ -46,9 +46,9 @@ export default function UsageBar({ used, limit, plan }: Props) {
           {full && plan === 'FREE' && (
             <div className="mt-3 flex items-center justify-between">
               <p className="text-sm font-bold text-red-500">{t.usage.limit_reached}</p>
-              <Link href="/pricing" className="text-sm font-bold text-blue-600 transition-colors hover:text-blue-700">
+              <CheckoutButton plan="PRO" className="text-sm font-bold text-blue-600 transition-colors hover:text-blue-700">
                 {t.usage.upgrade}
-              </Link>
+              </CheckoutButton>
             </div>
           )}
           {near && !full && (

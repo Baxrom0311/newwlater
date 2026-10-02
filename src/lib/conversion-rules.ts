@@ -19,5 +19,9 @@ export const PROTECTED_PATTERNS: RegExp[] = [
   /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu,
   /#[\p{L}\p{N}_-]+/gu,
   /@[\p{L}\p{N}_-]+/gu,
-  /`[^`]*`/gu,
+  // Fenced ``` code blocks, and single-backtick spans that are NOT letter-adjacent.
+  // A backtick sitting between letters (e.g. o`zbek, g`alla) is an apostrophe, not
+  // code, so it must stay convertible — hence the letter boundary guards.
+  /```[\s\S]*?```/gu,
+  /(?<![\p{L}])`[^`\n]+`(?![\p{L}])/gu,
 ]

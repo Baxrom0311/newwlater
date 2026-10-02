@@ -1,9 +1,9 @@
 {
   "oldLatinWordRules": [
-    { "from": "mo'jiza", "to": "mojiza" },
-    { "from": "mo'jaz", "to": "mojaz" },
-    { "from": "mo'tadil", "to": "motadil" },
-    { "from": "mo'tabar", "to": "motabar" }
+    { "from": "mo'jiza", "to": "mö'jiza" },
+    { "from": "mo'jaz", "to": "mö'jaz" },
+    { "from": "mo'tadil", "to": "mö'tadil" },
+    { "from": "mo'tabar", "to": "mö'tabar" }
   ],
   "protectedTerms": [
     "ChatGPT",
@@ -21,6 +21,23 @@
     "share",
     "show",
     "short",
-    "shipping"
+    "shipping",
+    "ishoq",
+    "ashob",
+    "mushaf",
+    "ashobi",
+    "ishoqiy",
+    "ishoqxon",
+    "ishoqbek",
+    "GitHub",
+    "Bash",
+    "SSH",
+    "Dashboard",
+    "Machine",
+    "Cash",
+    "Flash",
+    "Crash",
+    "Push",
+    "Fish"
   ]
 }

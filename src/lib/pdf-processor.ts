@@ -8,10 +8,11 @@ export async function processPdf(
   mode: ConversionMode,
   options: ConversionOptions = {}
 ): Promise<{ body: Buffer; ext: 'docx' | 'pdf'; contentType: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
-  const data = await pdfParse(buffer)
-  const sourceText = data.text.trim()
+  // pdf-parse v2 exports a PDFParse class (it is no longer a callable module).
+  const { PDFParse } = await import('pdf-parse')
+  const parser = new PDFParse({ data: new Uint8Array(buffer) })
+  const result = await parser.getText()
+  const sourceText = (result.text ?? '').trim()
   if (!sourceText) {
     const result = await processScannedPdf(buffer, mode, options)
     return {

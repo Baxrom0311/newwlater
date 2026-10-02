@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { prisma } from '@/lib/prisma'
+import { fallbackEmail } from '@/lib/clerk-user'
 
 export async function POST(req: NextRequest) {
   const secret = process.env.CLERK_WEBHOOK_SECRET
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
       last_name?: string
       image_url?: string
     }
-    const email = data.email_addresses[0]?.email_address ?? ''
+    const email = data.email_addresses[0]?.email_address ?? fallbackEmail(data.id)
     const name = [data.first_name, data.last_name].filter(Boolean).join(' ') || null
 
     await prisma.user.upsert({

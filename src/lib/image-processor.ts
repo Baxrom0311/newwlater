@@ -8,7 +8,10 @@ export async function processImage(
 ): Promise<{ text: string; docx: Buffer }> {
   const { createWorker } = await import('tesseract.js')
 
-  const worker = await createWorker(['uzb', 'uzb_latn', 'eng'], 1, {
+  // Tesseract has 'uzb' and 'uzb_cyrl' — there is no 'uzb_latn'. '/tmp' is the
+  // only writable traineddata cache dir on serverless.
+  const worker = await createWorker(['uzb', 'eng'], 1, {
+    cachePath: '/tmp',
     logger: () => {},
   })
 

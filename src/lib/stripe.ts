@@ -1,7 +1,7 @@
 import Stripe from 'stripe'
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-06-24.dahlia',
+  apiVersion: '2026-08-26.dahlia',
   typescript: true,
 })
 
@@ -12,23 +12,33 @@ export async function createStripeCustomer(email: string, userId: string) {
   })
 }
 
+/**
+ * Resolve the Stripe customer id for a user, preferring a previously stored id
+ * and creating (once) if none exists — rather than the fragile list-by-email.
+ */
+export async function resolveStripeCustomerId(params: {
+  userId: string
+  email: string
+  storedCustomerId?: string | null
+}): Promise<string> {
+  if (params.storedCustomerId) return params.storedCustomerId
+  const customer = await createStripeCustomer(params.email, params.userId)
+  return customer.id
+}
+
 export async function createCheckoutSession({
   userId,
-  email,
+  customerId,
   priceId,
   plan,
 }: {
   userId: string
-  email: string
+  customerId: string
   priceId: string
   plan: string
 }) {
-  const customer = await stripe.customers.list({ email, limit: 1 })
-  const customerId = customer.data[0]?.id
-
   return stripe.checkout.sessions.create({
     customer: customerId,
-    customer_email: customerId ? undefined : email,
     mode: 'subscription',
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],

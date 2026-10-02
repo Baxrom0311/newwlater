@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { clerkClient, verifyToken } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/prisma'
+import { verifyToken } from '@clerk/nextjs/server'
 import { getPlan, type PlanKey } from '@/lib/plans'
 import { getMonthlyUsage } from '@/lib/usage'
+import { ensureUserRecord } from '@/lib/clerk-user'
 
 async function userIdFromBearer(req: Request) {
   const token = req.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]
@@ -17,24 +17,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let user: { id: string; plan: string; [key: string]: unknown } | null =
-    await prisma.user.findUnique({ where: { id: userId } }).catch(() => null)
-  if (!user) {
-    try {
-      const clerk = await clerkClient()
-      const clerkUser = await clerk.users.getUser(userId)
-      user = await prisma.user.create({
-        data: {
-          id: userId,
-          email: clerkUser.emailAddresses[0]?.emailAddress ?? '',
-          name: `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() || null,
-          imageUrl: clerkUser.imageUrl,
-        },
-      }).catch(() => ({ id: userId, plan: 'FREE' as string }))
-    } catch {
-      user = { id: userId, plan: 'FREE' }
-    }
-  }
+  const user = await ensureUserRecord(userId).catch(() => ({ id: userId, plan: 'FREE' as string }))
 
   const plan = (user?.plan ?? 'FREE') as PlanKey
   const planConfig = getPlan(plan)

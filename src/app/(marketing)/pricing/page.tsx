@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { Check, Minus, ArrowRight, HelpCircle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n/I18nContext'
+import CheckoutButton from '@/components/CheckoutButton'
+
+type PlanKey = 'FREE' | 'PRO' | 'BUSINESS'
 
 export default function PricingPage() {
   const { t } = useI18n()
@@ -14,6 +17,7 @@ export default function PricingPage() {
       period: null,
       desc: t.pricing.note_free,
       href: '/sign-up',
+      planKey: 'FREE' as PlanKey,
       cta: t.pricing.start_btn,
       primary: false,
       features: [
@@ -27,10 +31,11 @@ export default function PricingPage() {
     },
     {
       name: t.pricing.pro_plan,
-      price: '9',
+      price: '3',
       period: t.pricing.per_month,
       desc: t.pricing.note_pro,
       href: '/sign-up?plan=pro',
+      planKey: 'PRO' as PlanKey,
       cta: t.pricing.start_pro,
       primary: true,
       features: [
@@ -44,10 +49,11 @@ export default function PricingPage() {
     },
     {
       name: t.pricing.business_plan,
-      price: '29',
+      price: '10',
       period: t.pricing.per_month,
       desc: t.pricing.note_biz,
       href: '/sign-up?plan=business',
+      planKey: 'BUSINESS' as PlanKey,
       cta: t.pricing.more,
       primary: false,
       features: [
@@ -116,13 +122,23 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <Link
-                  href={plan.href}
-                  className={`pricing-button ${plan.primary ? 'pricing-button-primary' : ''}`}
-                >
-                  {plan.cta}
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
+                {plan.planKey === 'FREE' ? (
+                  <Link
+                    href={plan.href}
+                    className={`pricing-button ${plan.primary ? 'pricing-button-primary' : ''}`}
+                  >
+                    {plan.cta}
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
+                ) : (
+                  <CheckoutButton
+                    plan={plan.planKey}
+                    className={`pricing-button ${plan.primary ? 'pricing-button-primary' : ''}`}
+                  >
+                    {plan.cta}
+                    <ArrowRight className="w-5 h-5" />
+                  </CheckoutButton>
+                )}
               </div>
             ))}
           </div>

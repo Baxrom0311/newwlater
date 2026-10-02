@@ -70,8 +70,12 @@ export default function AuthShell({ children, eyebrow, title, description }: Aut
           </div>
         </section>
 
+        {/* Force a light surface so the (light-themed) Clerk widget stays
+            readable even when the page is in dark mode. */}
         <section className="auth-form-panel">
-          {children}
+          <div className="rounded-3xl bg-white p-6 text-zinc-900 shadow-xl ring-1 ring-zinc-200 sm:p-8">
+            {children}
+          </div>
         </section>
       </div>
     </div>

@@ -17,12 +17,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Language>('uz')
   const [mounted, setMounted] = useState(false)
 
+  // Read the persisted language on mount (localStorage is SSR-unavailable).
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setMounted(true)
     const saved = localStorage.getItem('app_lang') as Language | null
     if (saved && ['uz', 'ru', 'en'].includes(saved)) {
       setLangState(saved)
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
   const setLang = (newLang: Language) => {

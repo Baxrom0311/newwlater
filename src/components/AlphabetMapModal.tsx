@@ -1,28 +1,45 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BookOpen, X } from 'lucide-react'
-import { useI18n } from '@/lib/i18n/I18nContext'
 
 const ALPHABET_MAP = [
-  { old: "sh / SH", cyr: "ш / Ш", new: "ş / Ş", ex: "şirin, Şarqli" },
-  { old: "ch / CH", cyr: "ч / Ч", new: "ç / Ç", ex: "çoy, Çiroq" },
-  { old: "o' / O'", cyr: "ў / Ў", new: "ö / Ö", ex: "öroz, Ösish" },
-  { old: "g' / G'", cyr: "ғ / Ғ", new: "ğ / Ğ", ex: "ğalla, Ğoz" },
+  { old: "sh / SH", cyr: "ш / Ш", new: "ş / Ş", ex: "şahar, Şirin" },
+  { old: "ch / CH", cyr: "ч / Ч", new: "ç / Ç", ex: "çiroq, Çoy" },
+  { old: "o' / O'", cyr: "ў / Ў", new: "ö / Ö", ex: "özbek, Köp" },
+  { old: "g' / G'", cyr: "ғ / Ғ", new: "ğ / Ğ", ex: "ğalla, Toğri" },
   { old: "e / E", cyr: "э / Э", new: "e / E", ex: "el, E'tibor" },
-  { old: "ts / TS", cyr: "ц / Ц", new: "ts / TS", ex: "tsirk, TSex" },
-  { old: "yo / YO", cyr: "ё / Ё", new: "yo / YO", ex: "yosh, YOSH" },
-  { old: "yu / YU", cyr: "ю / Ю", new: "yu / YU", ex: "yutuq, YUTUQ" },
-  { old: "ya / YA", cyr: "я / Я", new: "ya / YA", ex: "yaxshi, YAXSHI" },
+  { old: "ts / TS", cyr: "ц / Ц", new: "ts / TS", ex: "tsirk, Sirk" },
+  { old: "yo / YO", cyr: "ё / Ё", new: "yo / YO", ex: "yosh, Yozgi" },
+  { old: "yu / YU", cyr: "ю / Ю", new: "yu / YU", ex: "yutuq, Yulduz" },
+  { old: "ya / YA", cyr: "я / Я", new: "ya / YA", ex: "yaxshi, Yakshanba" },
 ]
 
 export default function AlphabetMapModal() {
   const [open, setOpen] = useState(false)
-  const { t } = useI18n()
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    // Lock body scroll while the dialog is open.
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    // Move focus into the dialog.
+    dialogRef.current?.focus()
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [open])
 
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/80 px-3 py-1 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
       >
@@ -31,19 +48,32 @@ export default function AlphabetMapModal() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="alphabet-modal-title"
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl outline-none dark:border-zinc-800 dark:bg-zinc-950"
+          >
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white font-bold">
                   2026
                 </div>
-                <h3 className="text-lg font-black text-zinc-950 dark:text-white">
-                  Yangi O'zbek Alifbosi Harflari
+                <h3 id="alphabet-modal-title" className="text-lg font-black text-zinc-950 dark:text-white">
+                  Yangi O&apos;zbek Alifbosi Harflari
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setOpen(false)}
+                aria-label="Yopish"
                 className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               >
                 <X className="h-5 w-5" />
@@ -75,6 +105,7 @@ export default function AlphabetMapModal() {
 
             <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
               <button
+                type="button"
                 onClick={() => setOpen(false)}
                 className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700"
               >

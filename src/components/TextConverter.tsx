@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { convertText, detectMode, type ConversionMode } from '@/lib/converter'
-import { Copy, Check, Download, Trash2, ArrowRight, ArrowLeftRight, FileText, Eye, History, Clock, CaseUpper, CaseLower, Volume2, Wand2 } from 'lucide-react'
+import { Copy, Check, Download, Trash2, ArrowRight, ArrowLeftRight, FileText, Eye, History, Clock, CaseUpper, CaseLower, Volume2, Wand2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
-import { createDocxFromText } from '@/lib/docx-writer'
 import { useI18n } from '@/lib/i18n/I18nContext'
 import AlphabetMapModal from '@/components/AlphabetMapModal'
+import WordInsightModal from '@/components/WordInsightModal'
+import { lookupWordInsight } from '@/lib/lexicon'
+import { findAutocorrectionsInText } from '@/lib/autocorrect'
 
-type SelectedMode = 'auto' | 'old-latin' | 'cyrillic'
+type SelectedMode = 'auto' | 'old-latin' | 'cyrillic' | 'new-latin'
 
 interface HistoryItem {
   id: string
@@ -19,20 +21,28 @@ interface HistoryItem {
 export default function TextConverter() {
   const { t } = useI18n()
   const [input, setInput] = useState('')
-  const [output, setOutput] = useState('')
   const [modeSetting, setModeSetting] = useState<SelectedMode>('auto')
-  const [activeMode, setActiveMode] = useState<ConversionMode>('old-latin')
   const [copiedInput, setCopiedInput] = useState(false)
   const [copiedOutput, setCopiedOutput] = useState(false)
   const [diffMode, setDiffMode] = useState(false)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [speaking, setSpeaking] = useState(false)
+  const [insightWord, setInsightWord] = useState<string | null>(null)
+  const [isInsightOpen, setIsInsightOpen] = useState(false)
 
-  // Load history from localStorage
+  const openInsight = useCallback((w: string) => {
+    if (!w || !w.trim()) return
+    setInsightWord(w.trim())
+    setIsInsightOpen(true)
+  }, [])
+
+  // Load history from localStorage on mount (localStorage is unavailable during
+  // SSR, so this must run in an effect rather than lazy initial state).
   useEffect(() => {
     try {
       const saved = localStorage.getItem('alifbo_recent_texts')
       if (saved) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setHistory(JSON.parse(saved))
       }
     } catch {
@@ -55,25 +65,46 @@ export default function TextConverter() {
     })
   }, [])
 
+  const [autocorrect, setAutocorrect] = useState(true)
+
+  // Derived state — compute during render instead of writing state in an effect.
+  const activeMode: ConversionMode = useMemo(
+    () => (modeSetting === 'auto' ? detectMode(input) : modeSetting),
+    [input, modeSetting]
+  )
+  const output = useMemo(
+    () => (input.trim() ? convertText(input, activeMode, { autocorrect }) : ''),
+    [input, activeMode, autocorrect]
+  )
+
+  const detectedCorrections = useMemo(() => {
+    if (!autocorrect || !input.trim()) return []
+    return findAutocorrectionsInText(input)
+  }, [input, autocorrect])
+
+  // Debounced save-to-history is a genuine side effect.
   useEffect(() => {
-    if (!input.trim()) {
-      setOutput('')
-      return
-    }
-    const mode: ConversionMode = modeSetting === 'auto' ? detectMode(input) : modeSetting
-    setActiveMode(mode)
-    const res = convertText(input, mode)
-    setOutput(res)
-
-    const timer = setTimeout(() => {
-      saveToHistory(input)
-    }, 1200)
-
+    if (!input.trim()) return
+    const timer = setTimeout(() => saveToHistory(input), 1200)
     return () => clearTimeout(timer)
-  }, [input, modeSetting, saveToHistory])
+  }, [input, saveToHistory])
+
+  // Stop any speech synthesis when this component unmounts.
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
 
   const copy = useCallback(async (text: string, side: 'in' | 'out') => {
-    await navigator.clipboard.writeText(text)
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      toast.error(t.converter.copy)
+      return
+    }
     if (side === 'in') {
       setCopiedInput(true)
       setTimeout(() => setCopiedInput(false), 1800)
@@ -82,34 +113,36 @@ export default function TextConverter() {
       setTimeout(() => setCopiedOutput(false), 1800)
     }
     toast.success(t.converter.copied)
-  }, [t.converter.copied])
+  }, [t.converter.copied, t.converter.copy])
 
   const downloadTxt = useCallback(() => {
     if (!output) return
     const blob = new Blob([output], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
-    a.download = 'alifbo_matn.txt'
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success(t.converter.download_txt)
+	    a.href = url
+	    a.download = 'alifbo_matn.txt'
+	    a.click()
+	    setTimeout(() => URL.revokeObjectURL(url), 1000)
+	    toast.success(t.converter.download_txt)
   }, [output, t.converter.download_txt])
 
   const downloadDocx = useCallback(async () => {
     if (!output) return
     try {
+      // Dynamic import keeps jszip out of the main dashboard bundle.
+      const { createDocxFromText } = await import('@/lib/docx-writer')
       const docxBuffer = await createDocxFromText(output)
       const blob = new Blob([new Uint8Array(docxBuffer)], {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = 'alifbo_hujjat.docx'
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success(t.converter.download_docx)
+	      a.href = url
+	      a.download = 'alifbo_hujjat.docx'
+	      a.click()
+	      setTimeout(() => URL.revokeObjectURL(url), 1000)
+	      toast.success(t.converter.download_docx)
     } catch {
       toast.error('DOCX Error')
     }
@@ -118,8 +151,13 @@ export default function TextConverter() {
   const swapText = useCallback(() => {
     if (!output) return
     setInput(output)
+    if (modeSetting === 'old-latin') {
+      setModeSetting('new-latin')
+    } else if (modeSetting === 'new-latin') {
+      setModeSetting('old-latin')
+    }
     toast.success(t.converter.swap)
-  }, [output, t.converter.swap])
+  }, [output, modeSetting, t.converter.swap])
 
   const changeCase = (upper: boolean) => {
     if (!input) return
@@ -157,22 +195,77 @@ export default function TextConverter() {
   }, [output])
 
   const detectedLabel =
-    activeMode === 'cyrillic' ? t.converter.cyrillic_mode : t.converter.old_latin_mode
+    activeMode === 'cyrillic'
+      ? t.converter.cyrillic_mode
+      : activeMode === 'new-latin'
+      ? (t.converter.new_latin_mode ?? 'Yangi → Eski')
+      : t.converter.old_latin_mode
 
-  const renderedOutput = useMemo(() => {
-    if (!diffMode || !output) return null
-    const parts = output.split(/([şçöğŞÇÖĞ])/)
-    return parts.map((part, idx) => {
-      if (/^[şçöğŞÇÖĞ]$/.test(part)) {
-        return (
-          <mark key={idx} className="rounded bg-amber-200/80 px-1 font-black text-amber-900 dark:bg-amber-500/35 dark:text-amber-200">
-            {part}
-          </mark>
-        )
+  const renderedInteractiveOutput = useMemo(() => {
+    if (!output) return null
+
+    // Split preserving whitespace and punctuation
+    const tokens = output.split(/([ \t\n\r]+|[.,!?:;"'«»()[\]{}]+)/)
+
+    return tokens.map((token, idx) => {
+      // Whitespace / punctuation
+      if (/^[ \t\n\r]+$/.test(token) || /^[.,!?:;"'«»()[\]{}]+$/.test(token)) {
+        return <span key={idx}>{token}</span>
       }
-      return part
+
+      const clean = token.replace(/^[^\p{L}\d'ʻ`ʼ´]+|[^\p{L}\d'ʻ`ʼ´]+$/gu, '')
+      if (!clean) return <span key={idx}>{token}</span>
+
+      const insight = lookupWordInsight(clean)
+      const isClassical = insight.entry?.type === 'classical'
+      const isHomonym = insight.entry?.type === 'homonym_tutuq'
+
+      let tokenContent: React.ReactNode = token
+      if (diffMode && /[şçöğŞÇÖĞ]/.test(token)) {
+        const parts = token.split(/([şçöğŞÇÖĞ])/)
+        tokenContent = parts.map((part, pIdx) => {
+          if (/^[şçöğŞÇÖĞ]$/.test(part)) {
+            return (
+              <mark
+                key={pIdx}
+                className="rounded bg-amber-200/80 px-0.5 font-black text-amber-900 dark:bg-amber-500/35 dark:text-amber-200"
+              >
+                {part}
+              </mark>
+            )
+          }
+          return part
+        })
+      }
+
+      return (
+        <span
+          key={idx}
+          onClick={() => openInsight(clean)}
+          title={`${clean} — AI ma'no va leksik tahlilni ko'rish uchun bosing`}
+          className={`group/word relative inline cursor-pointer rounded px-0.5 transition-colors hover:bg-blue-100 hover:text-blue-900 dark:hover:bg-blue-900/40 dark:hover:text-blue-200 ${
+            isClassical
+              ? 'decoration-purple-500 decoration-wavy underline underline-offset-4 font-bold text-purple-950 dark:text-purple-200'
+              : isHomonym
+              ? 'decoration-amber-500 decoration-dashed underline underline-offset-4 font-bold text-amber-950 dark:text-amber-200'
+              : ''
+          }`}
+        >
+          {tokenContent}
+          {isClassical && (
+            <span className="ml-0.5 inline-block text-[11px] select-none opacity-80" title="Mumtoz so‘z">
+              📜
+            </span>
+          )}
+          {isHomonym && (
+            <span className="ml-0.5 inline-block text-[11px] select-none opacity-80" title="Tutuq belgisi / Gomonim farqi">
+              ⚡
+            </span>
+          )}
+        </span>
+      )
     })
-  }, [diffMode, output])
+  }, [output, diffMode, openInsight])
 
   return (
     <div className="flex flex-col overflow-hidden bg-white dark:bg-zinc-950">
@@ -214,10 +307,50 @@ export default function TextConverter() {
           >
             {t.converter.cyrillic_mode}
           </button>
+          <button
+            type="button"
+            onClick={() => setModeSetting('new-latin')}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+              modeSetting === 'new-latin'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+            }`}
+          >
+            {t.converter.new_latin_mode ?? 'Yangi → Eski Lotin'}
+          </button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <AlphabetMapModal />
+
+          <button
+            type="button"
+            onClick={() => {
+              const firstWord = output.trim() ? output.trim().split(/\s+/)[0] : "she'r"
+              openInsight(firstWord)
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50/80 px-3 py-1 text-xs font-bold text-purple-700 transition-all hover:bg-purple-100 hover:shadow-xs dark:border-purple-900/60 dark:bg-purple-950/40 dark:text-purple-300"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+            {t.converter.word_insight ?? "AI So‘z Tahlili"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAutocorrect(!autocorrect)
+              toast.info(autocorrect ? "Imlo avto-tuzatish o'chirildi" : "Imlo avto-tuzatish yoqildi")
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all ${
+              autocorrect
+                ? 'border border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-xs'
+                : 'border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400'
+            }`}
+            title="Foydalanuvchi yo‘l qo‘ygan xatolarni avtomatik to‘g‘rilash (xarakat → harakat, etibor → e'tibor)"
+          >
+            <Wand2 className={`h-3.5 w-3.5 ${autocorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`} />
+            Imlo avto-tuzatish: {autocorrect ? 'Faol' : "O'chiq"}
+          </button>
 
           {output && (
             <button
@@ -363,9 +496,29 @@ export default function TextConverter() {
           </div>
           <div className="flex-1 px-4 pb-4 overflow-y-auto">
             {output ? (
-              <p className="cursor-blink whitespace-pre-wrap text-base font-bold leading-relaxed text-blue-800 dark:text-blue-300 sm:text-lg">
-                {diffMode ? renderedOutput : output}
-              </p>
+              <div>
+                {detectedCorrections.length > 0 && autocorrect && (
+                  <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs font-medium text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 shadow-xs">
+                    <Sparkles className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <span className="font-bold">
+                        {detectedCorrections.length} ta imlo xatosi to‘g‘rilandi:{' '}
+                      </span>
+                      <span className="opacity-90 font-mono text-[11px]">
+                        {detectedCorrections.slice(0, 4).map(c => `${c.original} → ${c.corrected}`).join(', ')}
+                        {detectedCorrections.length > 4 ? '...' : ''}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <p className="cursor-blink whitespace-pre-wrap text-base font-bold leading-relaxed text-blue-800 dark:text-blue-300 sm:text-lg">
+                  {renderedInteractiveOutput}
+                </p>
+                <div className="mt-3 flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-400 font-medium">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                  <span>Har qanday so‘z ustiga bosib, uning ma’nosi va mumtoz/tutuq tahlilini ko‘rishingiz mumkin</span>
+                </div>
+              </div>
             ) : (
               <p className="text-base font-medium leading-relaxed text-zinc-500 dark:text-zinc-600 sm:text-lg">
                 {t.converter.output_placeholder}
@@ -386,6 +539,13 @@ export default function TextConverter() {
           </div>
         </div>
       </div>
+
+      {/* Word Insight Modal */}
+      <WordInsightModal
+        word={insightWord}
+        isOpen={isInsightOpen}
+        onClose={() => setIsInsightOpen(false)}
+      />
     </div>
   )
 }

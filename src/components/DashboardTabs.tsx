@@ -41,9 +41,11 @@ export default function DashboardTabs({ textConverter, fileConverter }: Props) {
         </button>
       </div>
 
-      {/* Panel */}
+      {/* Panels — both stay mounted; we toggle visibility so switching tabs
+          never discards typed text, the file queue, or in-flight conversions. */}
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 sm:rounded-2xl">
-        {tab === 'text' ? textConverter : fileConverter}
+        <div hidden={tab !== 'text'}>{textConverter}</div>
+        <div hidden={tab !== 'file'}>{fileConverter}</div>
       </div>
     </div>
   )

@@ -1,16 +1,13 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, rgb } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import { createWorker } from 'tesseract.js'
 import { convertTextWithDictionary } from './async-converter'
+import { loadUnicodeFont } from './pdf-font'
 import type { ConversionMode, ConversionOptions } from './converter'
 
 type OcrWord = {
   text: string
-  bbox: {
-    x0: number
-    y0: number
-    x1: number
-    y1: number
-  }
+  bbox: { x0: number; y0: number; x1: number; y1: number }
   confidence?: number
 }
 
@@ -28,32 +25,29 @@ export async function processScannedPdf(
   mode: ConversionMode,
   options: ConversionOptions = {}
 ): Promise<Buffer> {
-  let pages: Array<{ pageNumber: number; png: Buffer; width: number; height: number }> = []
+  // Tesseract has 'uzb' and 'uzb_cyrl' (there is no 'uzb_latn'); '/tmp' is the
+  // only writable cache dir on serverless.
+  const worker = await createWorker(['uzb', 'eng'], 1, {
+    cachePath: '/tmp',
+    logger: () => {},
+  })
 
   try {
-    const { renderPdfPages } = await import('./pdf-renderer')
-    pages = await renderPdfPages(buffer, 2)
-  } catch (err) {
-    console.warn('[processScannedPdf] Canvas rendering fallback:', err)
-  }
+    const pdf = await PDFDocument.create()
+    pdf.registerFontkit(fontkit)
+    // A Unicode font — the standard Helvetica cannot encode ş/ğ.
+    const font = await pdf.embedFont(await loadUnicodeFont(), { subset: true })
+    let totalWords = 0
+    let renderedAny = false
 
-  const worker = await createWorker(['uzb', 'uzb_latn', 'eng'], 1, { logger: () => {} })
-
-  try {
-    if (pages.length > 0) {
-      const pdf = await PDFDocument.create()
-      const font = await pdf.embedFont(StandardFonts.Helvetica)
-      let totalWords = 0
-
-      for (const rendered of pages) {
+    try {
+      const { renderPdfPages } = await import('./pdf-renderer')
+      // Render one page at a time and drop each bitmap after embedding/OCR.
+      for await (const rendered of renderPdfPages(buffer, 2)) {
+        renderedAny = true
         const image = await pdf.embedPng(rendered.png)
         const page = pdf.addPage([rendered.width, rendered.height])
-        page.drawImage(image, {
-          x: 0,
-          y: 0,
-          width: rendered.width,
-          height: rendered.height,
-        })
+        page.drawImage(image, { x: 0, y: 0, width: rendered.width, height: rendered.height })
 
         const { data } = await worker.recognize(rendered.png)
         const words = getWords(data)
@@ -89,12 +83,15 @@ export async function processScannedPdf(
           })
         }
       }
-
-      if (totalWords > 0) {
-        return Buffer.from(await pdf.save())
-      }
+    } catch (err) {
+      console.warn('[processScannedPdf] Canvas rendering fallback:', err)
     }
 
+    if (renderedAny && totalWords > 0) {
+      return Buffer.from(await pdf.save())
+    }
+
+    // Fallback: OCR the whole file and emit a plain docx.
     const { data } = await worker.recognize(buffer)
     const text = data.text.trim()
     if (!text) {

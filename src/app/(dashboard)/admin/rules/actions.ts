@@ -1,8 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import type { ConversionDirection } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/admin'
+
+const VALID_DIRECTIONS = new Set<ConversionDirection>(['OLD_LATIN_TO_NEW', 'CYRILLIC_TO_NEW', 'ANY'])
 
 function normalize(value: string) {
   return value
@@ -29,10 +32,10 @@ export async function addConversionException(formData: FormData) {
   await requireAdmin()
   const from = String(formData.get('from') ?? '').trim()
   const to = String(formData.get('to') ?? '').trim()
-  const direction = String(formData.get('direction') ?? 'OLD_LATIN_TO_NEW') as
-    | 'OLD_LATIN_TO_NEW'
-    | 'CYRILLIC_TO_NEW'
-    | 'ANY'
+  const rawDirection = String(formData.get('direction') ?? 'OLD_LATIN_TO_NEW')
+  const direction: ConversionDirection = VALID_DIRECTIONS.has(rawDirection as ConversionDirection)
+    ? rawDirection as ConversionDirection
+    : 'OLD_LATIN_TO_NEW'
   const reason = String(formData.get('reason') ?? '').trim() || null
   if (!from || !to) return
 

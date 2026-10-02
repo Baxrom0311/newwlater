@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import type { ConversionDirection } from '@prisma/client'
 import type { ConversionMode } from './converter'
 import type { WordRule } from './conversion-rules'
 
@@ -8,21 +9,27 @@ type DbRules = {
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000
-let cachedRules: { expiresAt: number; value: DbRules } | null = null
+// Keyed by direction — a Cyrillic conversion must not serve its exceptions to an
+// old-Latin conversion (or vice versa).
+const cachedRules = new Map<string, { expiresAt: number; value: DbRules }>()
 
-function directionForMode(mode: ConversionMode) {
-  return mode === 'old-latin' ? 'OLD_LATIN_TO_NEW' : 'CYRILLIC_TO_NEW'
+function directionsForMode(mode: ConversionMode): ConversionDirection[] {
+  if (mode === 'old-latin') return ['OLD_LATIN_TO_NEW', 'ANY']
+  if (mode === 'cyrillic') return ['CYRILLIC_TO_NEW', 'ANY']
+  return ['ANY']
 }
 
 export async function getDbConversionRules(mode: ConversionMode): Promise<DbRules> {
-  if (cachedRules && cachedRules.expiresAt > Date.now()) return cachedRules.value
+  const directions = directionsForMode(mode)
+  const cacheKey = directions.join('|')
+  const cached = cachedRules.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
 
-  const direction = directionForMode(mode)
   const [exceptions, protectedTerms] = await Promise.all([
     prisma.conversionException.findMany({
       where: {
         active: true,
-        OR: [{ direction }, { direction: 'ANY' }],
+        direction: { in: directions },
       },
       select: { from: true, to: true },
     }),
@@ -36,6 +43,6 @@ export async function getDbConversionRules(mode: ConversionMode): Promise<DbRule
     exceptions: exceptions.map((rule) => ({ from: rule.from, to: rule.to })),
     protectedTerms: protectedTerms.map((term) => term.term),
   }
-  cachedRules = { value, expiresAt: Date.now() + CACHE_TTL_MS }
+  cachedRules.set(cacheKey, { value, expiresAt: Date.now() + CACHE_TTL_MS })
   return value
 }

@@ -8,6 +8,9 @@ export default function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
+  // Hydration guard — render a placeholder until mounted so the client theme
+  // doesn't mismatch SSR. setState-on-mount is the intended pattern here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), [])
   if (!mounted) return <div className="w-8 h-8" />
 
