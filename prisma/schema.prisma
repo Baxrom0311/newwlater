@@ -128,3 +128,11 @@ model ProtectedTerm {
 
   @@index([active])
 }
+
+// Daily site traffic counters (day in Asia/Tashkent, "2026-10-26").
+model SiteStat {
+  day       String @id
+  requests  Int    @default(0)
+  pageViews Int    @default(0)
+  qrScans   Int    @default(0)
+}

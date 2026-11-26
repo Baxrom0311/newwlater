@@ -7,6 +7,7 @@ import LiveDemo from '@/components/LiveDemo'
 import AppLogo from '@/components/AppLogo'
 import CursorSpotlight from '@/components/CursorSpotlight'
 import ModernFeatures from '@/components/ModernFeatures'
+import SiteStats from '@/components/SiteStats'
 import { useI18n } from '@/lib/i18n/I18nContext'
 
 export default function LandingPage() {
@@ -93,6 +94,9 @@ export default function LandingPage() {
 
       {/* ══ FEATURES (MODERN BENTO GRID) ═════════════════════════ */}
       <ModernFeatures />
+
+      {/* ══ LIVE STATS + QR ══════════════════════════════════ */}
+      <SiteStats />
 
       {/* ══ PRICING TEASER ════════════════════════════════════ */}
       <section className="px-4 py-14 sm:py-20">
